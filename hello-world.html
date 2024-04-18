@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.min.js"></script>
+        <script>eruda.init();</script>
+        
+        <title>DBR v- 6.5 test</title>
+    </head>
+<body>
+    
+    <p>Please check if there are any remaining cameras available for connection.</p>
+    <p>
+        Opening the camera at a non-secure site may fail.
+        Please refer to <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia#Security" target="_blank">this</a>
+        for more info.
+    </p>
+   
+
+    <!--Warning: Use a specific version in production. (e.g. https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@6/dist/dbr.min.js)-->
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@6/dist/dbr.min.js"></script>
+    
+    <script>
+        // https://www.dynamsoft.com/CustomerPortal/Portal/TrialLicense.aspx
+        BarcodeReader.licenseKey = 't0068NQAAAJtSB4J1m98GdsGFQ8KTkbeEY1DcUbn0nN3VKazpnuDzDqMoxDz+rugU8WAObedk/upzRRa5cmM0jZNLBzSx4WA=';
+        let scanner = new BarcodeReader.Scanner({
+            onFrameRead: results => {if(results.length!==0) console.log(results);},
+            onNewCodeRead: (txt, result) => {alert(txt);}
+        });
+        scanner.open().catch(ex=>{
+            console.log(ex);
+            alert(ex.message || ex);
+            scanner.close();
+        });
+    </script>
+</body>
+</html>
