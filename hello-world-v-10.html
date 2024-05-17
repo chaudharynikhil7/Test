@@ -30,11 +30,50 @@
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-router@2.2.10/dist/cvr.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@4.0.2/dist/dce.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-code-parser@2.2.10/dist/dcp.js"></script>
+    <style>
+      .bubble-box-container {
+        position: absolute;
+        display: flex;
+        justify-content: center;
+      }
+      .bubble-box-container > .bubble-box {
+        position: absolute;
+        width: max-content;
+        max-width: 20rem;
+        background: white;
+        border-radius: 4px;
+        padding: 4px;
+        word-break: break-all;
+        word-wrap: break-word;
+        box-shadow: 5px 5px 5px 3px rgba(0, 0, 0, 0.2);
+        transform: translateY(calc(-100% - 4px));
+      }
+      .bubble-box-container > .bubble-box::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: calc(50% - 8px);
+        border-left: 8px solid transparent;
+        border-top: 8px solid white;
+        border-right: 8px solid transparent;
+      }
+    </style>
   </head>
 
   <body>
+    <h1 style="position: fixed; top: 5%; left: 50%; transform: translateX(-50%); z-index: 9999;">Hello World (Decode via Camera)</h1>
+    <!-- <div id="div-ui-container" style="width: 60%; height: 80vh"></div>
+    Results:
+    <br>
+    <div id="div-results-container" style="width: 100%; height: 10vh; overflow: auto;"></div> -->
+    <div id="div-ui-container" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; height: 80vh;"></div>
+    <div style="position: fixed; top: 85%; left: 50%; transform: translateX(-50%); width: 60%; height: 10vh; overflow: auto;">
+      Results:
+      <div id="div-results-container" ></div>
+    </div>
+
     <h1>Hello World (Decode via Camera)</h1>
-    <div id="div-ui-container" style="width: 100%; height: 80vh"></div>
+    <div id="div-ui-container" style="width: 60%; height: 80vh"></div>
     Results:
     <br />
     <div
@@ -92,10 +131,14 @@
             "ReadSingleBarcode"
           );
           console.log("settings", settings);
+          /* start-case ---- checking multiple cvr simplified settings
           settings.barcodeSettings.barcodeFormatIds =
             Dynamsoft.DBR.EnumBarcodeFormat.BF_ALL;
-          // settings.barcodeSettings.barcodeFormatIds = Dynamsoft.DBR.EnumBarcodeFormat.BF_;
-          //settings.barcodeSettings.minResultConfidence = 20; //setting confidence
+
+      
+      // settings.barcodeSettings.barcodeFormatIds = Dynamsoft.DBR.EnumBarcodeFormat.BF_;
+      stop-case */
+          // settings.barcodeSettings.minResultConfidence = 20; //setting confidence
           // settings.barcodeSettings.minBarcodeTextLength = 22; //setting barcodeTextLength
           await router.updateSettings("ReadSingleBarcode", settings);
 
@@ -173,6 +216,8 @@
           await cameraEnhancer.open();
 
           await router.startCapturing("ReadSingleBarcode");
+          /* start-case-1 ------ Testing for stopping the capturing process after 10 seconds 
+
           const checkValueAfterTenSeconds = () => {
             // Check the value after 10 seconds
             setTimeout(() => {
@@ -182,7 +227,7 @@
                 router.stopCapturing(); // stop capturing any more frames
                 cameraEnhancer.close(); // stopping active camera
                 cameraEnhancer.dispose(); // releasing all the resources
-                router.dispose(); //release all resources from router module  
+                router.dispose(); //release all resources from router module
               } else {
                 console.log("Value found already and Capturing already handled");
               }
@@ -190,12 +235,34 @@
           };
           checkValueAfterTenSeconds();
 
-          // cameraView.setScanLaserVisible(false); //needs to be called after startCapturing
-          //             setTimeout(() => {
-          //                 console.log(document.getElementsByClassName("dce-msg-poweredby")[0])
-          //                 document.getElementsByClassName("dce-msg-poweredby")[0].style.display = "none";
+        Stop-case-1 */
 
-          // }, 2000);
+        /* Start-case-2 --- disable scan laser and poweredby msg
+        console.log("disabling scan laser, ")   
+        cameraView.setScanLaserVisible(false); //needs to be called after startCapturing
+          setTimeout(() => {
+            console.log("removing dce-msg-poweredby");
+            document.getElementById('div-ui-container').children[0].shadowRoot.querySelector('.dce-msg-poweredby').style.display='none'
+          }, 2000);
+          
+        Stop-case-2 */
+        document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      console.log("executing timeout")
+        const divUiContainer = document.getElementById('div-ui-container');
+        if (divUiContainer.children.length > 0) {
+            const firstChild = divUiContainer.children[0];
+            const shadowRoot = firstChild.shadowRoot;
+            if (shadowRoot) {
+                const dceMsgPoweredBy = shadowRoot.querySelector('.dce-msg-poweredby');
+                if (dceMsgPoweredBy) {
+                    dceMsgPoweredBy.style.display = 'none';
+                }
+            }
+        }
+    }, 1000); // Adjust the timeout value as needed
+});
+
         } catch (ex) {
           let errMsg = ex.message || ex;
           //console.error(errMsg);
