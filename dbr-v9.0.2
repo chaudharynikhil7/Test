@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Quickly read barcodes with Dynamsoft Barcode Reader from a live camera stream."
+    />
+    <meta name="keywords" content="camera based barcode reading" />
+    <link
+      rel="canonical"
+      href="https://demo.dynamsoft.com/Samples/DBR/JS/1.hello-world/1.hello-world.html"
+    />
+    <title>
+      Dynamsoft Barcode Reader Sample - Hello World (Decoding via Camera)
+    </title>
+  </head>
+
+  <body>
+    <!-- <button>Reload to get permissions pop-up</button> -->
+    <button
+      onclick="navigator.mediaDevices.getUserMedia({ video: true }).catch(() => window.open('edge://settings/content/camera'));"
+    >
+      Re-enable Camera Access
+    </button>
+    Loading...
+    <script src=https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.0.2/dist/dbr.js></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.6.42/dist/dbr.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.min.js"></script>
+    <script>eruda.init();</script>
+    <script>
+      if (location.protocol === "file:") {
+        const message = `The page is opened via file:// and "BarcodeScanner" may not work properly. Please open the page via https:// or host it on "http://localhost/".`;
+        console.warn(message);
+        alert(message);
+      }
+    </script>
+    <script>
+  
+
+      Dynamsoft.DBR.BarcodeReader.license =
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9";
+
+   
+      (async function () {
+        try {
+          const scanner = await Dynamsoft.DBR.BarcodeScanner.createInstance();
+          
+          scanner.onFrameRead = (results) => {
+            if(results.length === 0) return;
+            for (let result of results) {
+              const format = result.barcodeFormatString;
+              console.log(format + ": " + result.barcodeText);
+            }
+          };
+  
+
+          await scanner.show();
+        } catch (ex) {
+          let errMsg;
+          if (ex.message?.includes("network connection error")) {
+            errMsg =
+              "Failed to connect to Dynamsoft License Server: network connection error. Check your Internet connection or contact Dynamsoft Support (support@dynamsoft.com) to acquire an offline license.";
+          } else if (ex.name === "NotAllowedError") {
+            errMsg =
+              "View Site information and click allow access to camera to allow permission";
+          } else {
+            errMsg = ex.message || ex;
+          }
+          console.error(errMsg);
+          alert(errMsg);
+        }
+      })();
+    </script>
+  </body>
+</html>
