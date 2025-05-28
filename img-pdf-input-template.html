@@ -143,7 +143,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
     <script>
-      Dynamsoft.License.LicenseManager.initLicense("DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9");
+      Dynamsoft.License.LicenseManager.initLicense(
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHnuYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHnuYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9"
+      );
       Dynamsoft.Core.CoreModule.loadWasm(["DBR"]);
 
       const templates = ["ReadBarcodes"];
@@ -160,6 +162,34 @@
 
       let totalBarcodesFound = 0;
       const totalFormatCounts = {};
+
+      function displayOverallSummary() {
+        if (totalBarcodesFound > 0) {
+          const overallSummaryDiv = document.createElement("div");
+          overallSummaryDiv.classList.add("overall-summary");
+
+          const summaryHeader = document.createElement("h2");
+          summaryHeader.innerText = "📊 Overall Summary";
+          overallSummaryDiv.appendChild(summaryHeader);
+
+          const overallSummaryHeader = document.createElement("h3");
+          overallSummaryHeader.innerText = "Barcode Summary:";
+          overallSummaryDiv.appendChild(overallSummaryHeader);
+
+          const totalBarcodes = document.createElement("div");
+          totalBarcodes.innerText = `  • Total Barcodes: ${totalBarcodesFound}`;
+          overallSummaryDiv.appendChild(totalBarcodes);
+
+          for (let format in totalFormatCounts) {
+            const formatCount = document.createElement("div");
+            formatCount.innerText = `  • [${format}]: ${totalFormatCounts[format]}`;
+            overallSummaryDiv.appendChild(formatCount);
+          }
+          resultsContainer.appendChild(overallSummaryDiv);
+        } else if (uploadedFiles.length > 0) {
+          resultsContainer.innerText = "No barcodes found in the processed files.";
+        }
+      }
 
       templateFileInput.addEventListener("change", function () {
         const file = this.files[0];
@@ -196,29 +226,7 @@
                 }
 
                 processingMessageVisible = false;
-                if (totalBarcodesFound > 0) {
-                  const overallSummaryDiv = document.createElement("div");
-                  overallSummaryDiv.classList.add("overall-summary");
-
-                  const summaryHeader = document.createElement("h2");
-                  summaryHeader.innerText = "📊 Overall Summary";
-                  overallSummaryDiv.appendChild(summaryHeader);
-
-                  const overallSummaryHeader = document.createElement("h3");
-                  overallSummaryHeader.innerText = "Barcode Summary:";
-                  overallSummaryDiv.appendChild(overallSummaryHeader);
-
-                  const totalBarcodes = document.createElement("div");
-                  totalBarcodes.innerText = `  • Total Barcodes: ${totalBarcodesFound}`;
-                  overallSummaryDiv.appendChild(totalBarcodes);
-
-                  for (let format in totalFormatCounts) {
-                    const formatCount = document.createElement("div");
-                    formatCount.innerText = `  • [${format}]: ${totalFormatCounts[format]}`;
-                    overallSummaryDiv.appendChild(formatCount);
-                  }
-                  resultsContainer.appendChild(overallSummaryDiv);
-                }
+                displayOverallSummary(); // Call the new function here
               }
             } catch (error) {
               console.error("Error parsing uploaded template:", error);
@@ -270,21 +278,16 @@
               await processImage(file, file.name);
             }
           }
-          processingMessageVisible = false;
-          if (totalBarcodesFound === 0 && uploadedFiles.length > 0) {
-            resultsContainer.innerText = "No barcodes found in the processed files.";
-          } else if (totalBarcodesFound > 0) {
-            // The overall summary is already added in the inputFile change listener
-          }
         } catch (ex) {
-          processingMessageVisible = false;
           console.error(ex);
           alert(ex.message || ex);
         } finally {
-          if (processingMessageVisible) {
-            resultsContainer.innerText = ""; // Ensure processing message is removed even on error
-            processingMessageVisible = false;
+          processingMessageVisible = false;
+          // Ensure processing message is removed
+          if (resultsContainer.innerText === "Processing...") {
+            resultsContainer.innerText = "";
           }
+          displayOverallSummary(); // Call the new function here as well
         }
       }
 
@@ -301,7 +304,7 @@
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
 
-          const viewport = page.getViewport({ scale: 3 });
+          const viewport = page.getViewport({ scale: 2 });
           canvas.width = viewport.width;
           canvas.height = viewport.height;
 
