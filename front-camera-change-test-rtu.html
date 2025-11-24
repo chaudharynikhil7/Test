@@ -171,15 +171,20 @@
 
                       if (!onCameraOpenCalled) {
                         console.log("ERROR: OnCameraOpen was never called! This is the root issue.");
-                        console.log("Trying alternative approach - direct scanner restart...");
+                        console.log("The camera is technically working but the UI isn't updating.");
+                        console.log("Manual workaround needed - check if video stream is actually active");
 
-                        // Try restarting the entire scanner as a last resort
-                        try {
-                          // This is more drastic but might trigger all callbacks properly
-                          location.reload(); // Force complete page reload
-                        } catch (restartError) {
-                          console.error("Scanner restart failed:", restartError);
+                        // Instead of reloading, let's try a different approach
+                        const finalVideo = components.cameraEnhancer.getVideoEl();
+                        const finalStream = finalVideo?.srcObject;
+
+                        if (finalStream && finalStream.active) {
+                          console.log("Stream is active - this might be a UI display issue only");
+                        } else {
+                          console.log("Stream is inactive - this is a deeper MediaStream issue");
                         }
+
+                        console.log("Recommendation: Manually refresh the page to try again");
                       } else {
                         console.log("SUCCESS: OnCameraOpen was called!");
                       }
