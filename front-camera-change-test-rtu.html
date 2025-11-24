@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamsoft Barcode Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.2000/dist/dbr.bundle.js"></script>
+  </head>
+
+  <body>
+    <script>
+      const barcodeScannerConfig = {
+        // license: "LICENSE-KEY",
+        license:
+          "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+        scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
+        onUniqueBarcodeScanned: (result) => {
+          // Play a beep sound when a unique barcode is scanned
+          Dynamsoft.DCE.Feedback.beep();
+        },
+        showResultView: true,
+        onInitReady: (components) => {
+          // this method is used to interact with the foundational components
+          
+
+          components.cameraEnhancer.getAllCameras().then((cameras) => {
+            if (cameras.length) {
+              console.log(cameras);
+              return components.cameraEnhancer.selectCamera(cameras[0]);
+            }
+          });
+
+          // Set the scan region to a rectangle with percentage values by cameraEnhancer
+          let region = {
+            x: 10,
+            y: 20,
+            width: 80,
+            height: 60,
+            isMeasuredInPercentage: true,
+          };
+          components.cameraEnhancer.setScanRegion(region);
+        },
+      };
+      const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
+
+      (async () => {
+        const result = await barcodeScanner.launch();
+      })();
+    </script>
+  </body>
+</html>
