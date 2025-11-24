@@ -23,6 +23,14 @@
 
         scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
         showResultView: true,
+        // Configure camera constraints to prefer back camera from the start
+        cameraEnhancerConfig: {
+          videoConstraints: {
+            facingMode: { ideal: "environment" }, // This will prefer back camera
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        },
         // iPhone-specific: Add error handling for camera issues
         onCameraSetupError: (error) => {
           console.error("Camera setup error:", error);
@@ -49,152 +57,15 @@
               cameras.map((c) => ({ label: c.label, deviceId: c.deviceId }))
             );
 
-            if (cameras.length > 1) {
-              console.log("Attempting to select camera:", cameras[3].label);
+            // Let the scanner choose the camera naturally based on videoConstraints
+            console.log("Letting scanner auto-select camera based on facingMode constraint...");
 
-              // For iPhone: Close camera first if it's open, then select
-              if (components.cameraEnhancer.isOpen()) {
-                console.log("Closing camera before selection...");
-                await components.cameraEnhancer.close();
-              }
-
-              // Select the camera
-              const selectResult = await components.cameraEnhancer.selectCamera(cameras[3]);
-              console.log("Camera selection result:", selectResult);
-
-              // iPhone-specific: Add delay and check video stream
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              console.log("After selection delay - Camera state:", components.cameraEnhancer.getCameraState());
-              console.log("After selection delay - Is open:", components.cameraEnhancer.isOpen());
-
-              // Check video element immediately after selection
-              const videoEl = components.cameraEnhancer.getVideoEl();
-              console.log("Video element after selection:", videoEl);
-              console.log("Video srcObject after selection:", videoEl ? videoEl.srcObject : "No video");
-              console.log("Video readyState after selection:", videoEl ? videoEl.readyState : "No video");
-
-              // For iPhone: Explicitly open the camera after selection
-              if (!components.cameraEnhancer.isOpen()) {
-                console.log("Opening camera after selection...");
-                const openResult = await components.cameraEnhancer.open();
-                console.log("Camera open result:", openResult);
-              }
-
-              console.log("Selected camera:", cameras[3].label);
-              console.log("Final camera state:", components.cameraEnhancer.getCameraState());
-
-              // iPhone-specific: Force video stream refresh if needed
-              if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                console.log("iPhone detected - checking video stream...");
-                const videoElFinal = components.cameraEnhancer.getVideoEl();
-                if (!videoElFinal || !videoElFinal.srcObject) {
-                  console.log("Video stream missing on iPhone - attempting recovery...");
-                  try {
-                    await components.cameraEnhancer.close();
-                    await new Promise((resolve) => setTimeout(resolve, 500));
-                    await components.cameraEnhancer.open();
-                    console.log("iPhone video stream recovery attempted");
-                  } catch (recoveryError) {
-                    console.error("iPhone recovery failed:", recoveryError);
-                  }
-                } else {
-                  console.log("Video stream exists - manually triggering UI update...");
-
-                  // Force the UI to recognize the camera is working
-                  try {
-                    // Get the camera view and force it to update
-                    const cameraView = components.cameraEnhancer.getCameraView();
-                    if (cameraView) {
-                      console.log("Camera view found, forcing refresh...");
-                      // Try to force a view refresh by toggling the video
-                      const video = components.cameraEnhancer.getVideoEl();
-                      if (video && video.srcObject) {
-                        console.log("Forcing video element refresh...");
-                        video.load(); // Force reload of video element
-
-                        // Ensure video plays
-                        if (video.paused) {
-                          await video.play();
-                          console.log("Video forced to play");
-                        }
-
-                        // Force a paint/render update
-                        video.style.display = "none";
-                        video.offsetHeight; // Force reflow
-                        video.style.display = "";
-                        console.log("Forced UI refresh completed");
-                      }
-                    }
-
-                    // Alternative: Try to manually call the onCameraOpen callback
-                    console.log("Manually triggering onCameraOpen logic...");
-                    const currentCamera = components.cameraEnhancer.getSelectedCamera();
-                    console.log("Manual check - Camera:", currentCamera?.label);
-                    console.log("Manual check - Camera state:", components.cameraEnhancer.getCameraState());
-                    console.log("Manual check - Is open:", components.cameraEnhancer.isOpen());
-
-                    // Last resort: Close and reopen to trigger proper callbacks
-                    if (components.cameraEnhancer.isOpen()) {
-                      console.log("Attempting full camera restart to trigger callbacks...");
-
-                      // Check MediaStream status before restart
-                      const videoBefore = components.cameraEnhancer.getVideoEl();
-                      const streamBefore = videoBefore?.srcObject;
-                      console.log("Before restart - Stream active:", streamBefore?.active);
-                      console.log("Before restart - Stream tracks:", streamBefore?.getTracks?.()?.length);
-
-                      await components.cameraEnhancer.close();
-                      console.log("Camera closed, state:", components.cameraEnhancer.getCameraState());
-
-                      await new Promise((resolve) => setTimeout(resolve, 1000));
-                      console.log("About to reopen camera...");
-
-                      const reopenResult = await components.cameraEnhancer.open();
-                      console.log("Camera reopen result:", reopenResult);
-                      console.log("After restart - Camera state:", components.cameraEnhancer.getCameraState());
-                      console.log("After restart - Is open:", components.cameraEnhancer.isOpen());
-
-                      // Check MediaStream status after restart
-                      const videoAfter = components.cameraEnhancer.getVideoEl();
-                      const streamAfter = videoAfter?.srcObject;
-                      console.log("After restart - Video element:", !!videoAfter);
-                      console.log("After restart - Stream active:", streamAfter?.active);
-                      console.log("After restart - Stream tracks:", streamAfter?.getTracks?.()?.length);
-                      console.log("After restart - Video readyState:", videoAfter?.readyState);
-
-                      console.log("Full camera restart completed");
-
-                      // Give some time for callbacks to fire
-                      await new Promise((resolve) => setTimeout(resolve, 2000));
-                      console.log("Waiting period completed - checking if onCameraOpen was called...");
-                      console.log("OnCameraOpen callback called:", onCameraOpenCalled);
-
-                      if (!onCameraOpenCalled) {
-                        console.log("ERROR: OnCameraOpen was never called! This is the root issue.");
-                        console.log("The camera is technically working but the UI isn't updating.");
-                        console.log("Manual workaround needed - check if video stream is actually active");
-
-                        // Instead of reloading, let's try a different approach
-                        const finalVideo = components.cameraEnhancer.getVideoEl();
-                        const finalStream = finalVideo?.srcObject;
-
-                        if (finalStream && finalStream.active) {
-                          console.log("Stream is active - this might be a UI display issue only");
-                        } else {
-                          console.log("Stream is inactive - this is a deeper MediaStream issue");
-                        }
-
-                        console.log("Recommendation: Manually refresh the page to try again");
-                      } else {
-                        console.log("SUCCESS: OnCameraOpen was called!");
-                      }
-                    }
-                  } catch (uiError) {
-                    console.error("UI refresh failed:", uiError);
-                  }
-                }
-              }
-            }
+            // Just wait a moment and check what camera was selected
+            setTimeout(() => {
+              const selectedCamera = components.cameraEnhancer.getSelectedCamera();
+              console.log("Auto-selected camera:", selectedCamera?.label);
+              console.log("Auto-selected camera state:", components.cameraEnhancer.getCameraState());
+            }, 2000);
           } catch (error) {
             console.error("Error in camera setup:", error);
           }
