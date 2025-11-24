@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dynamsoft Barcode Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.2000/dist/dbr.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.min.js"></script>
+    <script>
+      eruda.init();
+    </script>
   </head>
 
   <body>
@@ -19,28 +23,32 @@
           Dynamsoft.DCE.Feedback.beep();
         },
         showResultView: true,
-        onInitReady: (components) => {
-          // this method is used to interact with the foundational components
-          
-
-          components.cameraEnhancer.getAllCameras().then((cameras) => {
-            if (cameras.length) {
-              console.log(cameras);
-              return components.cameraEnhancer.selectCamera(cameras[0]);
+        onInitReady: async (components) => {
+          // Get all cameras and select a specific one BEFORE opening
+          try {
+            const cameras = await components.cameraEnhancer.getAllCameras();
+            if (cameras.length > 1) {
+              console.log("Available cameras:", cameras);
+              await components.cameraEnhancer.selectCamera(cameras[0]);
+              console.log("Selected camera:", cameras[0].label);
             }
-          });
+          } catch (error) {
+            console.error("Error selecting camera:", error);
+          }
+        },
+        onCameraOpen: async (components) => {
+          // This callback runs after the camera is opened
+          // Use this as a backup to ensure the correct camera is selected
+          console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
 
-          // Set the scan region to a rectangle with percentage values by cameraEnhancer
-          let region = {
-            x: 10,
-            y: 20,
-            width: 80,
-            height: 60,
-            isMeasuredInPercentage: true,
-          };
-          components.cameraEnhancer.setScanRegion(region);
+          let currentCamera = components.cameraEnhancer.getSelectedCamera();
+          console.log("Camera after opening:", currentCamera.label);
+
+          // If you need to switch cameras after opening, you can do it here
+          // Note: This might cause a brief interruption as the camera switches
         },
       };
+
       const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
 
       (async () => {
