@@ -14,33 +14,131 @@
   <body>
     <script>
       const barcodeScannerConfig = {
+        // license: "LICENSE-KEY",
         license:
           "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+
         scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
         showResultView: true,
+        // iPhone-specific: Add error handling for camera issues
+        onCameraSetupError: (error) => {
+          console.error("Camera setup error:", error);
+          // Try to recover by refreshing the page on iPhone
+          if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            console.log("iPhone detected, attempting recovery...");
+            setTimeout(() => {
+              location.reload();
+            }, 3000);
+          }
+        },
         onInitReady: async (components) => {
+          console.log("OnInitReady - Camera state:", components.cameraEnhancer.getCameraState());
+
           try {
+            // Test camera access first
+            const testResponse = await Dynamsoft.DCE.CameraEnhancer.testCameraAccess();
+            console.log("Camera access test:", testResponse);
+
             const cameras = await components.cameraEnhancer.getAllCameras();
+            console.log("Total cameras found:", cameras.length);
+            console.log(
+              "All cameras:",
+              cameras.map((c) => ({ label: c.label, deviceId: c.deviceId }))
+            );
+
             if (cameras.length > 1) {
-              console.log("Available cameras:", cameras);
-              await components.cameraEnhancer.selectCamera(cameras[3]);
+              console.log("Attempting to select camera:", cameras[3].label);
+
+              // For iPhone: Close camera first if it's open, then select
+              if (components.cameraEnhancer.isOpen()) {
+                console.log("Closing camera before selection...");
+                await components.cameraEnhancer.close();
+              }
+
+              // Select the camera
+              const selectResult = await components.cameraEnhancer.selectCamera(cameras[3]);
+              console.log("Camera selection result:", selectResult);
+
+              // For iPhone: Explicitly open the camera after selection
+              if (!components.cameraEnhancer.isOpen()) {
+                console.log("Opening camera after selection...");
+                const openResult = await components.cameraEnhancer.open();
+                console.log("Camera open result:", openResult);
+              }
+
               console.log("Selected camera:", cameras[3].label);
+              console.log("Final camera state:", components.cameraEnhancer.getCameraState());
             }
           } catch (error) {
-            console.error("Error selecting camera:", error);
+            console.error("Error in camera setup:", error);
           }
         },
         onCameraOpen: async (components) => {
+          console.log("=== OnCameraOpen Callback ===");
           console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
+          console.log("Is camera open?", components.cameraEnhancer.isOpen());
+          console.log("Is camera paused?", components.cameraEnhancer.isPaused());
+
           let currentCamera = components.cameraEnhancer.getSelectedCamera();
-          console.log("Camera after opening:", currentCamera.label);
+          console.log("Camera after opening:", currentCamera ? currentCamera.label : "No camera");
+
+          // Check video element
+          const videoEl = components.cameraEnhancer.getVideoEl();
+          console.log("Video element:", videoEl);
+          console.log("Video srcObject:", videoEl ? videoEl.srcObject : "No video element");
+          console.log("Video readyState:", videoEl ? videoEl.readyState : "No video element");
+
+          // Get camera capabilities for debugging
+          try {
+            const capabilities = components.cameraEnhancer.getCapabilities();
+            console.log("Camera capabilities:", capabilities);
+          } catch (error) {
+            console.log("Could not get capabilities:", error);
+          }
+
+          // iPhone-specific: Check if we need to resume the camera
+          if (components.cameraEnhancer.isPaused()) {
+            console.log("Camera is paused, attempting to resume...");
+            try {
+              await components.cameraEnhancer.resume();
+              console.log("Camera resumed successfully");
+            } catch (error) {
+              console.error("Error resuming camera:", error);
+            }
+          }
         },
       };
 
       const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
 
       (async () => {
-        const result = await barcodeScanner.launch();
+        try {
+          console.log("Launching barcode scanner...");
+          console.log("User agent:", navigator.userAgent);
+          console.log("Is iPhone?", /iPhone|iPad|iPod/i.test(navigator.userAgent));
+
+          const result = await barcodeScanner.launch();
+          console.log("Scanner launched successfully:", result);
+        } catch (error) {
+          console.error("Error launching scanner:", error);
+
+          // iPhone-specific error recovery
+          if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            console.log("iPhone error detected, trying alternative approach...");
+
+            // Try to launch again after a delay
+            setTimeout(async () => {
+              try {
+                console.log("Retrying scanner launch...");
+                const retryResult = await barcodeScanner.launch();
+                console.log("Retry successful:", retryResult);
+              } catch (retryError) {
+                console.error("Retry failed:", retryError);
+                alert("Camera access failed on iPhone. Please refresh the page and allow camera permissions.");
+              }
+            }, 2000);
+          }
+        }
       })();
     </script>
   </body>
