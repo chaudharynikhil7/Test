@@ -5,33 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dynamsoft Barcode Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.2000/dist/dbr.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.min.js"></script>
+    <script>
+      eruda.init();
+    </script>
   </head>
 
   <body>
     <script>
+      navigator.mediaDevices.getUserMedia({ video: true }).then(
+        (mediaStream) => {
+          mediaStream.getTracks().forEach((track) => {
+            track.stop();
+          });
+        },
+        (err) => {}
+      );
+
       const barcodeScannerConfig = {
         license:
           "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
         scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
         showResultView: true,
-        // Configure camera constraints to select front/back camera
-        cameraEnhancerConfig: {
-          videoConstraints: {
-            facingMode: { ideal: "user" }, // "user" = front camera, "environment" = back camera
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+        onInitReady: async (components) => {
+          try {
+            const cameras = await components.cameraEnhancer.getAllCameras();
+            if (cameras.length >= 1) {
+              console.log("Available cameras:", cameras);
+              await components.cameraEnhancer.selectCamera(cameras[0]);
+              console.log("Selected camera:", cameras[0].label);
+              components.cameraEnhancer.open();
+            }
+          } catch (error) {
+            console.error("Error selecting camera:", error);
+          }
+        },
+        onCameraOpen: async (components) => {
+          //to check if correct camera is opened with its label name
+          console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
+          let currentCamera = components.cameraEnhancer.getSelectedCamera();
+          console.log("Camera after opening:", currentCamera.label);
         },
       };
 
       const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
 
       (async () => {
-        try {
-          await barcodeScanner.launch();
-        } catch (error) {
-          console.error("Error launching scanner:", error);
-        }
+        const result = await barcodeScanner.launch();
       })();
     </script>
   </body>
