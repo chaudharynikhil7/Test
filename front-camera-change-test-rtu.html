@@ -14,38 +14,26 @@
   <body>
     <script>
       const barcodeScannerConfig = {
-        // license: "LICENSE-KEY",
         license:
           "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
         scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
-        onUniqueBarcodeScanned: (result) => {
-          // Play a beep sound when a unique barcode is scanned
-          Dynamsoft.DCE.Feedback.beep();
-        },
         showResultView: true,
         onInitReady: async (components) => {
-          // Get all cameras and select a specific one BEFORE opening
           try {
             const cameras = await components.cameraEnhancer.getAllCameras();
             if (cameras.length > 1) {
               console.log("Available cameras:", cameras);
-              await components.cameraEnhancer.selectCamera(cameras[0]);
-              console.log("Selected camera:", cameras[0].label);
+              await components.cameraEnhancer.selectCamera(cameras[3]);
+              console.log("Selected camera:", cameras[3].label);
             }
           } catch (error) {
             console.error("Error selecting camera:", error);
           }
         },
         onCameraOpen: async (components) => {
-          // This callback runs after the camera is opened
-          // Use this as a backup to ensure the correct camera is selected
           console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
-
           let currentCamera = components.cameraEnhancer.getSelectedCamera();
           console.log("Camera after opening:", currentCamera.label);
-
-          // If you need to switch cameras after opening, you can do it here
-          // Note: This might cause a brief interruption as the camera switches
         },
       };
 
