@@ -59,6 +59,17 @@
               const selectResult = await components.cameraEnhancer.selectCamera(cameras[3]);
               console.log("Camera selection result:", selectResult);
 
+              // iPhone-specific: Add delay and check video stream
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              console.log("After selection delay - Camera state:", components.cameraEnhancer.getCameraState());
+              console.log("After selection delay - Is open:", components.cameraEnhancer.isOpen());
+
+              // Check video element immediately after selection
+              const videoEl = components.cameraEnhancer.getVideoEl();
+              console.log("Video element after selection:", videoEl);
+              console.log("Video srcObject after selection:", videoEl ? videoEl.srcObject : "No video");
+              console.log("Video readyState after selection:", videoEl ? videoEl.readyState : "No video");
+
               // For iPhone: Explicitly open the camera after selection
               if (!components.cameraEnhancer.isOpen()) {
                 console.log("Opening camera after selection...");
@@ -68,6 +79,23 @@
 
               console.log("Selected camera:", cameras[3].label);
               console.log("Final camera state:", components.cameraEnhancer.getCameraState());
+
+              // iPhone-specific: Force video stream refresh if needed
+              if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                console.log("iPhone detected - checking video stream...");
+                const videoElFinal = components.cameraEnhancer.getVideoEl();
+                if (!videoElFinal || !videoElFinal.srcObject) {
+                  console.log("Video stream missing on iPhone - attempting recovery...");
+                  try {
+                    await components.cameraEnhancer.close();
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+                    await components.cameraEnhancer.open();
+                    console.log("iPhone video stream recovery attempted");
+                  } catch (recoveryError) {
+                    console.error("iPhone recovery failed:", recoveryError);
+                  }
+                }
+              }
             }
           } catch (error) {
             console.error("Error in camera setup:", error);
@@ -87,6 +115,7 @@
           console.log("Video element:", videoEl);
           console.log("Video srcObject:", videoEl ? videoEl.srcObject : "No video element");
           console.log("Video readyState:", videoEl ? videoEl.readyState : "No video element");
+          console.log("Video dimensions:", videoEl ? `${videoEl.videoWidth}x${videoEl.videoHeight}` : "No video");
 
           // Get camera capabilities for debugging
           try {
@@ -104,6 +133,28 @@
               console.log("Camera resumed successfully");
             } catch (error) {
               console.error("Error resuming camera:", error);
+            }
+          }
+
+          // iPhone-specific: Additional video stream validation
+          if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            console.log("iPhone onCameraOpen - performing additional checks...");
+
+            // Check if video is actually playing
+            if (videoEl) {
+              console.log("Video paused?", videoEl.paused);
+              console.log("Video muted?", videoEl.muted);
+              console.log("Video autoplay?", videoEl.autoplay);
+
+              // Try to ensure video is playing
+              if (videoEl.paused) {
+                try {
+                  await videoEl.play();
+                  console.log("Video play() called successfully");
+                } catch (playError) {
+                  console.error("Video play() failed:", playError);
+                }
+              }
             }
           }
         },
