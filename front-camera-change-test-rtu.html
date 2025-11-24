@@ -13,6 +13,9 @@
 
   <body>
     <script>
+      // Global flag to track onCameraOpen callback
+      let onCameraOpenCalled = false;
+
       const barcodeScannerConfig = {
         // license: "LICENSE-KEY",
         license:
@@ -133,10 +136,53 @@
                     // Last resort: Close and reopen to trigger proper callbacks
                     if (components.cameraEnhancer.isOpen()) {
                       console.log("Attempting full camera restart to trigger callbacks...");
+
+                      // Check MediaStream status before restart
+                      const videoBefore = components.cameraEnhancer.getVideoEl();
+                      const streamBefore = videoBefore?.srcObject;
+                      console.log("Before restart - Stream active:", streamBefore?.active);
+                      console.log("Before restart - Stream tracks:", streamBefore?.getTracks?.()?.length);
+
                       await components.cameraEnhancer.close();
+                      console.log("Camera closed, state:", components.cameraEnhancer.getCameraState());
+
                       await new Promise((resolve) => setTimeout(resolve, 1000));
-                      await components.cameraEnhancer.open();
+                      console.log("About to reopen camera...");
+
+                      const reopenResult = await components.cameraEnhancer.open();
+                      console.log("Camera reopen result:", reopenResult);
+                      console.log("After restart - Camera state:", components.cameraEnhancer.getCameraState());
+                      console.log("After restart - Is open:", components.cameraEnhancer.isOpen());
+
+                      // Check MediaStream status after restart
+                      const videoAfter = components.cameraEnhancer.getVideoEl();
+                      const streamAfter = videoAfter?.srcObject;
+                      console.log("After restart - Video element:", !!videoAfter);
+                      console.log("After restart - Stream active:", streamAfter?.active);
+                      console.log("After restart - Stream tracks:", streamAfter?.getTracks?.()?.length);
+                      console.log("After restart - Video readyState:", videoAfter?.readyState);
+
                       console.log("Full camera restart completed");
+
+                      // Give some time for callbacks to fire
+                      await new Promise((resolve) => setTimeout(resolve, 2000));
+                      console.log("Waiting period completed - checking if onCameraOpen was called...");
+                      console.log("OnCameraOpen callback called:", onCameraOpenCalled);
+
+                      if (!onCameraOpenCalled) {
+                        console.log("ERROR: OnCameraOpen was never called! This is the root issue.");
+                        console.log("Trying alternative approach - direct scanner restart...");
+
+                        // Try restarting the entire scanner as a last resort
+                        try {
+                          // This is more drastic but might trigger all callbacks properly
+                          location.reload(); // Force complete page reload
+                        } catch (restartError) {
+                          console.error("Scanner restart failed:", restartError);
+                        }
+                      } else {
+                        console.log("SUCCESS: OnCameraOpen was called!");
+                      }
                     }
                   } catch (uiError) {
                     console.error("UI refresh failed:", uiError);
@@ -149,7 +195,8 @@
           }
         },
         onCameraOpen: async (components) => {
-          console.log("=== OnCameraOpen Callback ===");
+          onCameraOpenCalled = true;
+          console.log("=== OnCameraOpen Callback === (FLAG SET TO TRUE)");
           console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
           console.log("Is camera open?", components.cameraEnhancer.isOpen());
           console.log("Is camera paused?", components.cameraEnhancer.isPaused());
