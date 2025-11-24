@@ -94,6 +94,53 @@
                   } catch (recoveryError) {
                     console.error("iPhone recovery failed:", recoveryError);
                   }
+                } else {
+                  console.log("Video stream exists - manually triggering UI update...");
+
+                  // Force the UI to recognize the camera is working
+                  try {
+                    // Get the camera view and force it to update
+                    const cameraView = components.cameraEnhancer.getCameraView();
+                    if (cameraView) {
+                      console.log("Camera view found, forcing refresh...");
+                      // Try to force a view refresh by toggling the video
+                      const video = components.cameraEnhancer.getVideoEl();
+                      if (video && video.srcObject) {
+                        console.log("Forcing video element refresh...");
+                        video.load(); // Force reload of video element
+
+                        // Ensure video plays
+                        if (video.paused) {
+                          await video.play();
+                          console.log("Video forced to play");
+                        }
+
+                        // Force a paint/render update
+                        video.style.display = "none";
+                        video.offsetHeight; // Force reflow
+                        video.style.display = "";
+                        console.log("Forced UI refresh completed");
+                      }
+                    }
+
+                    // Alternative: Try to manually call the onCameraOpen callback
+                    console.log("Manually triggering onCameraOpen logic...");
+                    const currentCamera = components.cameraEnhancer.getSelectedCamera();
+                    console.log("Manual check - Camera:", currentCamera?.label);
+                    console.log("Manual check - Camera state:", components.cameraEnhancer.getCameraState());
+                    console.log("Manual check - Is open:", components.cameraEnhancer.isOpen());
+
+                    // Last resort: Close and reopen to trigger proper callbacks
+                    if (components.cameraEnhancer.isOpen()) {
+                      console.log("Attempting full camera restart to trigger callbacks...");
+                      await components.cameraEnhancer.close();
+                      await new Promise((resolve) => setTimeout(resolve, 1000));
+                      await components.cameraEnhancer.open();
+                      console.log("Full camera restart completed");
+                    }
+                  } catch (uiError) {
+                    console.error("UI refresh failed:", uiError);
+                  }
                 }
               }
             }
