@@ -1,4 +1,4 @@
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -13,60 +13,14 @@
 
   <body>
     <script>
-      navigator.mediaDevices.getUserMedia({ video: true }).then(
-        (mediaStream) => {
-          mediaStream.getTracks().forEach((track) => {
-            track.stop();
-          });
-        },
-        (err) => {}
-      );
+   
 
       const barcodeScannerConfig = {
         license:
           "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
         scanMode: Dynamsoft.EnumScanMode.SM_MULTI_UNIQUE,
         showResultView: true,
-        onInitReady: async (components) => {
-          try {
-            const cameras = await components.cameraEnhancer.getAllCameras();
-            if (cameras.length >= 1) {
-              console.log("Available cameras:", cameras);
-              await components.cameraEnhancer.selectCamera(cameras[0]);
-              console.log("Selected camera:", cameras[0].label);
-              components.cameraEnhancer.open();
-            }
-          } catch (error) {
-            console.error("Error selecting camera:", error);
-          }
-        },
         onCameraOpen: async (components) => {
-          //to check if correct camera is opened with its label name
-          console.log("Camera opened - state:", components.cameraEnhancer.getCameraState());
-          let currentCamera = components.cameraEnhancer.getSelectedCamera();
-          console.log("Camera after opening:", currentCamera.label);
-        },
-      };
-
-      const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
-
-      (async () => {
-        const result = await barcodeScanner.launch();
-      })();
-    </script>
-  </body>
-</html> -->
-
-
-<!DOCTYPE html>
-<html lang="en">
- <body>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.4000/dist/dbr.bundle.js"></script>
-  <script>
-   const barcodeScanner = new Dynamsoft.BarcodeScanner({
-    license: "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
-
-    onCameraOpen: async (components) => {
      const cameras =
       await components.cameraEnhancer.getAllCameras();
      const openedCamera =
@@ -83,15 +37,14 @@
       );
      }
     },
-   });
+   
+      };
 
-   (async () => {
-    const result = await barcodeScanner.launch();
-    if (result.barcodeResults.length) {
-     alert(result.barcodeResults[0].text);
-    }
-   })();
-  </script>
- </body>
+      const barcodeScanner = new Dynamsoft.BarcodeScanner(barcodeScannerConfig);
+
+      (async () => {
+        const result = await barcodeScanner.launch();
+      })();
+    </script>
+  </body>
 </html>
- 
