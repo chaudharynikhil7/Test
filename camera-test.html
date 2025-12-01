@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Debug Tool - DCE vs Native API Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-core@3.0.30/dist/core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@4.0.2/dist/dce.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .debug-section {
+        border: 1px solid #ddd;
+        margin: 15px 0;
+        padding: 15px;
+        border-radius: 8px;
+      }
+      .debug-section h3 {
+        margin-top: 0;
+        background: #f5f5f5;
+        padding: 10px;
+        margin: -15px -15px 15px -15px;
+        border-radius: 7px 7px 0 0;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+      }
+      .status.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .status.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .status.warning {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+      }
+      .status.info {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      .camera-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin: 20px 0;
+      }
+      .camera-list {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+      }
+      .camera-item {
+        padding: 8px;
+        margin: 5px 0;
+        background: white;
+        border-radius: 3px;
+        border-left: 4px solid #007bff;
+      }
+      .camera-item.missing {
+        border-left-color: #dc3545;
+      }
+      .camera-item.extra {
+        border-left-color: #28a745;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        margin: 5px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .debug-button {
+        background: #6c757d;
+      }
+      .debug-button:hover {
+        background: #545b62;
+      }
+      .test-button {
+        background: #28a745;
+      }
+      .test-button:hover {
+        background: #1e7e34;
+      }
+      .clear-button {
+        background: #dc3545;
+      }
+      .clear-button:hover {
+        background: #c82333;
+      }
+      #debug-log {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 15px;
+        height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .controls {
+        margin: 15px 0;
+      }
+      select {
+        padding: 8px;
+        margin: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Camera Debug Tool - DCE vs Native API Comparison</h1>
+
+    <div class="debug-section" style="background: #e8f4fd; border-color: #bee5eb">
+      <h3 style="background: #d1ecf1; color: #0c5460">ℹ️ Information Notice</h3>
+      <p style="margin: 0; color: #0c5460">
+        <strong>Purpose:</strong> This diagnostic tool gathers detailed camera and system information to help the
+        Dynamsoft team troubleshoot camera detection issues. The generated report contains browser details, camera
+        enumeration results, and API comparison data that can be shared with Dynamsoft support for technical assistance.
+      </p>
+    </div>
+
+    <div class="status info">
+      <strong>Debug Tool Active:</strong> This tool compares Dynamsoft Camera Enhancer (DCE) camera detection with
+      native Web APIs to help diagnose camera visibility issues.
+    </div>
+
+    <div class="debug-section">
+      <h3>🎯 Quick Diagnostics</h3>
+      <div class="controls">
+        <button id="btn-run-diagnostics" class="test-button">🚀 Run Full Diagnostics</button>
+        <button id="btn-download-log" class="debug-button">💾 Download Log</button>
+        <button id="btn-clear-log" class="clear-button">🗑️ Clear Log</button>
+      </div>
+      <div id="status-display" class="status info">Click "Run Full Diagnostics" to detect cameras...</div>
+    </div>
+
+    <div class="camera-comparison">
+      <div class="debug-section">
+        <h3>📹 DCE Camera Detection</h3>
+        <div class="controls">
+          <button id="btn-open-camera">📷 Open Camera</button>
+          <button id="btn-close-camera">❌ Close Camera</button>
+        </div>
+        <label for="select-camera">DCE Camera: </label>
+        <select name="" id="select-camera"></select>
+        <br />
+        <label for="select-resolution">Resolution: </label>
+        <select name="" id="select-resolution">
+          <option value="got-resolution" selected>1920*1080</option>
+          <option value="3840*2160">3840*2160</option>
+          <option value="1920*1080">1920*1080</option>
+          <option value="1280*720">1280*720</option>
+          <option value="640*480">640*480</option>
+        </select>
+        <div id="dce-camera-list" class="camera-list">
+          <em>DCE cameras will appear here...</em>
+        </div>
+      </div>
+
+      <div class="debug-section">
+        <h3>🌐 Native Web API Detection</h3>
+        <div id="native-camera-list" class="camera-list">
+          <em>Native API cameras will appear here...</em>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0">
+      <div class="debug-section">
+        <h3>🖥️ Camera Preview</h3>
+        <div id="div-ui-container" style="width: 100%; height: 50vh; border: 2px solid #007bff; border-radius: 8px">
+          <div class="dce-video-container" style="width: 100%; height: 100%"></div>
+        </div>
+      </div>
+
+      <div class="debug-section">
+        <h3>📊 Debug Log & Analysis</h3>
+        <div id="debug-log">🔧 Click "Run Full Diagnostics" to detect cameras...\n</div>
+      </div>
+    </div>
+    <script>
+      // Debug logging system
+      const debugLog = document.getElementById("debug-log");
+      const statusDisplay = document.getElementById("status-display");
+
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        const logMessage = `[${timestamp}] ${message}\n`;
+        debugLog.textContent += logMessage;
+        debugLog.scrollTop = debugLog.scrollHeight;
+
+        if (type === "error") {
+          console.error(message);
+        } else if (type === "warn") {
+          console.warn(message);
+        } else {
+          console.log(message);
+        }
+      }
+
+      function updateStatus(message, type = "info") {
+        statusDisplay.textContent = message;
+        statusDisplay.className = `status ${type}`;
+        log(`Status: ${message}`, type);
+      }
+
+      // Global variables
+      const uiContainer = document.querySelector("#div-ui-container");
+      const cameraSelection = document.querySelector("#select-camera");
+      const resolutionSelection = document.querySelector("#select-resolution");
+      const dceListElement = document.getElementById("dce-camera-list");
+      const nativeListElement = document.getElementById("native-camera-list");
+
+      let cameraView, cameraEnhancer;
+      let nativeCameras = [];
+      let dceCameras = [];
+
+      function generateTimestampedFilename(prefix = "camera-debug-log", extension = "txt") {
+        const now = new Date();
+        const timestamp =
+          now.getFullYear() +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          String(now.getDate()).padStart(2, "0") +
+          "_" +
+          String(now.getHours()).padStart(2, "0") +
+          String(now.getMinutes()).padStart(2, "0") +
+          String(now.getSeconds()).padStart(2, "0");
+        return `${prefix}_${timestamp}.${extension}`;
+      }
+
+      function downloadDebugLog() {
+        try {
+          const logContent = debugLog.textContent;
+          const filename = generateTimestampedFilename("camera-debug-log", "txt");
+
+          // Add system info header
+          const systemInfo =
+            `Camera Debug Report\n` +
+            `Generated: ${new Date().toISOString()}\n` +
+            `User Agent: ${navigator.userAgent}\n` +
+            `Platform: ${navigator.platform}\n` +
+            `URL: ${window.location.href}\n` +
+            `Secure Context: ${window.isSecureContext}\n` +
+            `===============================================\n\n`;
+
+          const fullContent = systemInfo + logContent;
+
+          const blob = new Blob([fullContent], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          log(`✅ Debug log downloaded as: ${filename}`);
+          updateStatus(`Debug log downloaded: ${filename}`, "success");
+        } catch (error) {
+          log(`❌ Failed to download debug log: ${error.message}`, "error");
+          updateStatus(`Download failed: ${error.message}`, "error");
+        }
+      }
+
+      // Native Web API functions
+      async function testNativeAPI() {
+        log("🌐 Testing Native Web API camera detection...");
+        updateStatus("Testing native camera API...", "info");
+
+        try {
+          // First, check if mediaDevices is supported
+          if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            throw new Error("Navigator.mediaDevices.enumerateDevices not supported");
+          }
+
+          log("✅ MediaDevices API is supported");
+
+          // Test permission status
+          if (navigator.permissions) {
+            try {
+              const permission = await navigator.permissions.query({ name: "camera" });
+              log(`📋 Camera permission status: ${permission.state}`);
+            } catch (e) {
+              log(`⚠️ Could not query camera permission: ${e.message}`, "warn");
+            }
+          }
+
+          // Enumerate devices without permission (limited info)
+          log("🔍 Enumerating devices without permission...");
+          const devicesWithoutPermission = await navigator.mediaDevices.enumerateDevices();
+          const camerasWithoutPermission = devicesWithoutPermission.filter((device) => device.kind === "videoinput");
+          log(`📹 Found ${camerasWithoutPermission.length} video input devices without permission`);
+
+          camerasWithoutPermission.forEach((device, index) => {
+            log(
+              `  Device ${index + 1}: ID=${device.deviceId.substring(0, 8)}..., Label="${
+                device.label || "Unknown"
+              }", GroupId=${device.groupId || "None"}`
+            );
+          });
+
+          // Request camera permission to get device labels
+          log("🔓 Requesting camera permission for detailed device info...");
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+            log("✅ Camera permission granted successfully");
+
+            // Stop the stream immediately
+            stream.getTracks().forEach((track) => {
+              track.stop();
+              log(`🛑 Stopped track: ${track.kind} (${track.label})`);
+            });
+          } catch (permissionError) {
+            log(`❌ Camera permission denied: ${permissionError.message}`, "error");
+            // Continue with limited info
+          }
+
+          // Enumerate again with permission
+          log("🔍 Re-enumerating devices with permission...");
+          const devicesWithPermission = await navigator.mediaDevices.enumerateDevices();
+          nativeCameras = devicesWithPermission.filter((device) => device.kind === "videoinput");
+
+          log(`📹 Total video input devices found: ${nativeCameras.length}`);
+
+          if (nativeCameras.length === 0) {
+            log("⚠️ No video input devices detected by native API", "warn");
+            updateStatus("No cameras detected by native API", "warning");
+          } else {
+            updateStatus(`Native API detected ${nativeCameras.length} camera(s)`, "success");
+          }
+
+          // Display detailed camera information
+          nativeCameras.forEach((device, index) => {
+            log(`📷 Camera ${index + 1}:`);
+            log(`   Device ID: ${device.deviceId}`);
+            log(`   Label: "${device.label || "Permission required for label"}"`);
+            log(`   Group ID: ${device.groupId || "None"}`);
+
+            // Try to get capabilities if possible
+            try {
+              if (device.deviceId && device.deviceId !== "") {
+                // Note: getCapabilities requires a MediaStreamTrack, not MediaDeviceInfo
+                log(`   Device ID available for constraints`);
+              }
+            } catch (e) {
+              log(`   Could not get capabilities: ${e.message}`);
+            }
+          });
+
+          displayNativeCameras();
+          return nativeCameras;
+        } catch (error) {
+          log(`❌ Native API Error: ${error.message}`, "error");
+          updateStatus(`Native API failed: ${error.message}`, "error");
+          throw error;
+        }
+      }
+
+      async function testCameraConstraints() {
+        log("⚙️ Testing different camera constraints...");
+
+        const constraints = [
+          { video: true },
+          { video: { facingMode: "user" } },
+          { video: { facingMode: "environment" } },
+          { video: { width: 1920, height: 1080 } },
+          { video: { width: { ideal: 1920 }, height: { ideal: 1080 } } },
+        ];
+
+        for (let i = 0; i < constraints.length; i++) {
+          const constraint = constraints[i];
+          log(`🧪 Testing constraint ${i + 1}: ${JSON.stringify(constraint)}`);
+
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraint);
+            const track = stream.getVideoTracks()[0];
+            const settings = track.getSettings();
+
+            log(`✅ Constraint ${i + 1} successful:`);
+            log(`   Track label: ${track.label}`);
+            log(`   Device ID: ${settings.deviceId}`);
+            log(`   Resolution: ${settings.width}x${settings.height}`);
+            log(`   Facing mode: ${settings.facingMode || "not specified"}`);
+
+            track.stop();
+          } catch (error) {
+            log(`❌ Constraint ${i + 1} failed: ${error.message}`, "warn");
+          }
+        }
+      }
+
+      function displayNativeCameras() {
+        nativeListElement.innerHTML = "";
+
+        if (nativeCameras.length === 0) {
+          nativeListElement.innerHTML = "<em>No cameras detected by native API</em>";
+          return;
+        }
+
+        nativeCameras.forEach((camera, index) => {
+          const item = document.createElement("div");
+          item.className = "camera-item";
+          item.innerHTML = `
+            <strong>Camera ${index + 1}</strong><br>
+            <strong>Label:</strong> ${camera.label || "Permission required"}<br>
+            <strong>Device ID:</strong> ${camera.deviceId}<br>
+            <strong>Group ID:</strong> ${camera.groupId || "None"}
+          `;
+          nativeListElement.appendChild(item);
+        });
+      }
+
+      // DCE functions (enhanced with debugging)
+      const init = async () => {
+        log("🚀 Initializing DCE (Dynamsoft Camera Enhancer)...");
+        updateStatus("Initializing DCE...", "info");
+
+        if (cameraEnhancer) {
+          log("ℹ️ DCE already initialized");
+          return;
+        }
+
+        try {
+          log("🧪 Testing DCE camera access...");
+          const testResult = await Dynamsoft.DCE.CameraEnhancer.testCameraAccess();
+
+          log(`📋 DCE testCameraAccess result: ${JSON.stringify(testResult)}`);
+
+          if (!testResult.ok) {
+            log(`❌ DCE camera access test failed: ${testResult.message}`, "error");
+            updateStatus(`DCE camera test failed: ${testResult.message}`, "error");
+            alert(testResult.message);
+            return;
+          }
+
+          log("✅ DCE camera access test passed");
+
+          log("🏗️ Creating DCE CameraView instance...");
+          cameraView = await Dynamsoft.DCE.CameraView.createInstance(uiContainer);
+          log("✅ DCE CameraView created successfully");
+
+          log("🏗️ Creating DCE CameraEnhancer instance...");
+          cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+          log("✅ DCE CameraEnhancer created successfully");
+
+          await getCameraList();
+          updateStatus("DCE initialized successfully", "success");
+        } catch (error) {
+          log(`❌ DCE Initialization Error: ${error.message}`, "error");
+          updateStatus(`DCE initialization failed: ${error.message}`, "error");
+          throw error;
+        }
+      };
+
+      const getCameraList = async () => {
+        log("📹 Getting DCE camera list...");
+
+        if (!cameraEnhancer) {
+          log("❌ CameraEnhancer not initialized", "error");
+          return null;
+        }
+
+        try {
+          const startTime = performance.now();
+          dceCameras = await cameraEnhancer.getAllCameras();
+          const endTime = performance.now();
+
+          log(`⏱️ DCE getAllCameras took ${(endTime - startTime).toFixed(2)}ms`);
+          log(`📹 DCE found ${dceCameras.length} cameras`);
+
+          if (dceCameras.length === 0) {
+            log("⚠️ No cameras detected by DCE", "warn");
+          }
+
+          cameraSelection.innerHTML = "";
+          dceCameras.forEach((camera, index) => {
+            log(`📷 DCE Camera ${index + 1}:`);
+            log(`   Device ID: ${camera.deviceId}`);
+            log(`   Label: "${camera.label}"`);
+
+            const option = document.createElement("option");
+            option.innerText = camera.label;
+            option.value = camera.deviceId;
+            cameraSelection.add(option);
+          });
+
+          displayDCECameras();
+          return dceCameras;
+        } catch (error) {
+          log(`❌ DCE getCameraList Error: ${error.message}`, "error");
+          throw error;
+        }
+      };
+
+      function displayDCECameras() {
+        dceListElement.innerHTML = "";
+
+        if (dceCameras.length === 0) {
+          dceListElement.innerHTML = "<em>No cameras detected by DCE</em>";
+          return;
+        }
+
+        dceCameras.forEach((camera, index) => {
+          const item = document.createElement("div");
+          item.className = "camera-item";
+          item.innerHTML = `
+            <strong>Camera ${index + 1}</strong><br>
+            <strong>Label:</strong> ${camera.label}<br>
+            <strong>Device ID:</strong> ${camera.deviceId}
+          `;
+          dceListElement.appendChild(item);
+        });
+      }
+
+      // Comparison and analysis functions
+      function compareAPIs() {
+        log("🔄 Comparing DCE vs Native API results...");
+        updateStatus("Comparing API results...", "info");
+
+        log(`📊 COMPARISON SUMMARY:`);
+        log(`   DCE detected: ${dceCameras.length} cameras`);
+        log(`   Native API detected: ${nativeCameras.length} cameras`);
+
+        if (dceCameras.length === nativeCameras.length) {
+          log("✅ Both APIs detected the same number of cameras");
+          updateStatus("Both APIs detected the same number of cameras", "success");
+        } else {
+          log(`⚠️ Camera count mismatch! DCE: ${dceCameras.length}, Native: ${nativeCameras.length}`, "warn");
+          updateStatus(`Camera count mismatch: DCE=${dceCameras.length}, Native=${nativeCameras.length}`, "warning");
+        }
+
+        // Detailed comparison
+        log("🔍 Detailed camera comparison:");
+
+        // Check for cameras in DCE but not in native
+        dceCameras.forEach((dceCamera, index) => {
+          const foundInNative = nativeCameras.find((native) => native.deviceId === dceCamera.deviceId);
+          if (foundInNative) {
+            log(`✅ DCE Camera ${index + 1} (${dceCamera.label}) found in native API`);
+          } else {
+            log(`❌ DCE Camera ${index + 1} (${dceCamera.label}) NOT found in native API`, "warn");
+          }
+        });
+
+        // Check for cameras in native but not in DCE
+        nativeCameras.forEach((nativeCamera, index) => {
+          const foundInDCE = dceCameras.find((dce) => dce.deviceId === nativeCamera.deviceId);
+          if (foundInDCE) {
+            log(`✅ Native Camera ${index + 1} (${nativeCamera.label}) found in DCE`);
+          } else {
+            log(`❌ Native Camera ${index + 1} (${nativeCamera.label}) NOT found in DCE`, "warn");
+          }
+        });
+
+        // Analysis and recommendations
+        log("💡 ANALYSIS & RECOMMENDATIONS:");
+
+        if (dceCameras.length === 0 && nativeCameras.length === 0) {
+          log("🔍 Both APIs show no cameras. Potential issues:");
+          log("   - No cameras physically connected");
+          log("   - Camera drivers not installed");
+          log("   - Cameras in use by other applications");
+          log("   - Browser permission denied");
+          log("   - Hardware/OS level camera access blocked");
+        } else if (dceCameras.length === 0 && nativeCameras.length > 0) {
+          log("🔍 Native API detects cameras but DCE does not. Potential DCE issues:");
+          log("   - DCE compatibility with current browser");
+          log("   - DCE version compatibility");
+          log("   - DCE initialization problems");
+          log("   - Camera format/driver compatibility with DCE");
+        } else if (dceCameras.length > 0 && nativeCameras.length === 0) {
+          log("🔍 DCE detects cameras but native API does not. This is unusual:");
+          log("   - Browser permission issues with native API");
+          log("   - DCE using different detection method");
+          log("   - Possible DCE false positive");
+        } else if (dceCameras.length !== nativeCameras.length) {
+          log("🔍 Different camera counts detected:");
+          log("   - Some cameras may not be compatible with one API");
+          log("   - Virtual cameras or software cameras present");
+          log("   - Driver compatibility issues");
+          log("   - Permission differences between APIs");
+        }
+      }
+
+      async function runFullDiagnostics() {
+        log("🚀 Starting Full Camera Diagnostics...");
+        log("================================================");
+        updateStatus("Running full diagnostics...", "info");
+
+        try {
+          // Browser and environment info
+          log("🌐 BROWSER & ENVIRONMENT INFO:");
+          log(`   User Agent: ${navigator.userAgent}`);
+          log(`   Platform: ${navigator.platform}`);
+          log(`   Language: ${navigator.language}`);
+          log(`   Online: ${navigator.onLine}`);
+          log(`   Secure Context: ${window.isSecureContext}`);
+          log(`   Location Protocol: ${window.location.protocol}`);
+
+          // Check for required APIs
+          log("🔧 API AVAILABILITY CHECK:");
+          log(`   navigator.mediaDevices: ${!!navigator.mediaDevices}`);
+          log(`   enumerateDevices: ${!!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)}`);
+          log(`   getUserMedia: ${!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)}`);
+          log(`   Dynamsoft.DCE: ${!!window.Dynamsoft && !!window.Dynamsoft.DCE}`);
+
+          // Test Native API first
+          log("\n📱 PHASE 1: Native Web API Testing");
+          log("==========================================");
+          await testNativeAPI();
+
+          // Initialize and test DCE
+          log("\n🔧 PHASE 2: DCE (Dynamsoft Camera Enhancer) Testing");
+          log("==========================================");
+          await init();
+
+          // Compare results
+          log("\n🔄 PHASE 3: API Comparison & Analysis");
+          log("==========================================");
+          compareAPIs();
+
+          // Additional constraint testing
+          log("\n⚙️ PHASE 4: Advanced Camera Constraint Testing");
+          log("==========================================");
+          await testCameraConstraints();
+
+          log("\n✅ DIAGNOSTICS COMPLETE");
+          log("================================================");
+          updateStatus("Diagnostics completed successfully", "success");
+
+          // Auto-download the diagnostic report
+          log("💾 Auto-downloading diagnostic report...");
+          downloadDebugLog();
+        } catch (error) {
+          log(`❌ DIAGNOSTICS FAILED: ${error.message}`, "error");
+          updateStatus(`Diagnostics failed: ${error.message}`, "error");
+        }
+      }
+
+      // Original DCE functions (enhanced)
+      const renderCurCamera = () => {
+        if (!cameraEnhancer) {
+          log("⚠️ Cannot render current camera - CameraEnhancer not initialized", "warn");
+          return;
+        }
+
+        try {
+          const curCamera = cameraEnhancer.getSelectedCamera();
+          log(`🎯 Current camera: ${curCamera.label} (${curCamera.deviceId})`);
+
+          for (let option of cameraSelection.options) {
+            if (option.value === curCamera.deviceId) {
+              cameraSelection.value = option.value;
+              break;
+            }
+          }
+        } catch (error) {
+          log(`❌ Error rendering current camera: ${error.message}`, "error");
+        }
+      };
+
+      const renderCurResolution = () => {
+        if (!cameraEnhancer) {
+          log("⚠️ Cannot render current resolution - CameraEnhancer not initialized", "warn");
+          return;
+        }
+
+        try {
+          const curResolution = cameraEnhancer.getResolution();
+          log(`📐 Current resolution: ${curResolution.width}x${curResolution.height}`);
+
+          resolutionSelection.item(0).innerText = `${curResolution.width}*${curResolution.height}`;
+          resolutionSelection.selectedIndex = 0;
+        } catch (error) {
+          log(`❌ Error rendering current resolution: ${error.message}`, "error");
+        }
+      };
+
+      // Event listeners
+      document.querySelector("#btn-open-camera").onclick = async () => {
+        log("📷 Opening camera...");
+        updateStatus("Opening camera...", "info");
+
+        try {
+          if (!cameraEnhancer) {
+            throw new Error("CameraEnhancer not initialized. Please run diagnostics first.");
+          }
+
+          await cameraEnhancer.open();
+          log("✅ Camera opened successfully");
+          updateStatus("Camera opened successfully", "success");
+
+          renderCurCamera();
+          renderCurResolution();
+        } catch (error) {
+          log(`❌ Failed to open camera: ${error.message}`, "error");
+          updateStatus(`Failed to open camera: ${error.message}`, "error");
+        }
+      };
+
+      document.querySelector("#btn-close-camera").onclick = async () => {
+        log("❌ Closing camera...");
+        updateStatus("Closing camera...", "info");
+
+        try {
+          if (!cameraEnhancer) {
+            log("⚠️ CameraEnhancer not initialized", "warn");
+            return;
+          }
+
+          await cameraEnhancer.close();
+          log("✅ Camera closed successfully");
+          updateStatus("Camera closed successfully", "success");
+        } catch (error) {
+          log(`❌ Failed to close camera: ${error.message}`, "error");
+          updateStatus(`Failed to close camera: ${error.message}`, "error");
+        }
+      };
+
+      // New event listeners for debug features
+      document.querySelector("#btn-run-diagnostics").onclick = runFullDiagnostics;
+      document.querySelector("#btn-download-log").onclick = downloadDebugLog;
+
+      document.querySelector("#btn-clear-log").onclick = () => {
+        debugLog.textContent = "🔧 Debug log cleared.\n";
+        updateStatus("Debug log cleared", "info");
+      };
+
+      cameraSelection.addEventListener("change", async () => {
+        if (!cameraEnhancer) return;
+
+        try {
+          log(`🔄 Switching to camera: ${cameraSelection.options[cameraSelection.selectedIndex].text}`);
+          await cameraEnhancer.selectCamera(cameraSelection.value);
+          renderCurCamera();
+          updateStatus("Camera switched successfully", "success");
+        } catch (error) {
+          log(`❌ Failed to switch camera: ${error.message}`, "error");
+          updateStatus(`Failed to switch camera: ${error.message}`, "error");
+        }
+      });
+
+      resolutionSelection.addEventListener("change", async () => {
+        if (!cameraEnhancer) return;
+
+        try {
+          const str = resolutionSelection.value;
+          const index = str.indexOf("*");
+          const width = parseInt(str.slice(0, index));
+          const height = parseInt(str.slice(index + 1));
+
+          log(`📐 Setting resolution to ${width}x${height}`);
+          await cameraEnhancer.setResolution({ width, height });
+          renderCurResolution();
+          updateStatus("Resolution changed successfully", "success");
+        } catch (error) {
+          log(`❌ Failed to change resolution: ${error.message}`, "error");
+          updateStatus(`Failed to change resolution: ${error.message}`, "error");
+        }
+      });
+
+      // Initialize on page load
+      log('🚀 Camera Debug Tool loaded. Click "Run Full Diagnostics" to check camera detection issues.');
+      updateStatus('Click "Run Full Diagnostics" to check camera detection issues', "info");
+    </script>
+  </body>
+</html>
