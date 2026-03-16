@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Quickly detect document boundaries from a live camera stream and crop the document out before normalizing it further through perspective correction, deskewing, and more."
+    />
+    <meta name="keywords" content="camera based quadrilateral detection and normalization" />
+    <title>Detect the boundary of a document and normalize it</title>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-bundle@3.2.5000/dist/dcv.bundle.js"></script>
+    <style>
+      :root {
+        --bg-start: #f3f7ff;
+        --bg-end: #e7f4ec;
+        --panel: #ffffff;
+        --text: #1f2a37;
+        --muted: #5b6472;
+        --accent: #0a7b83;
+        --accent-hover: #086168;
+        --border: #dbe4ef;
+        --shadow: 0 10px 25px rgba(25, 49, 86, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background: linear-gradient(130deg, var(--bg-start), var(--bg-end));
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .app-shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 1.4rem;
+        margin: 0 0 6px;
+      }
+
+      .subtitle {
+        margin: 0 0 14px;
+        color: var(--muted);
+      }
+
+      .file-input {
+        margin-bottom: 14px;
+      }
+
+      input[type="file"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: #f9fbff;
+      }
+
+      #div-result-container {
+        white-space: pre-wrap;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 13px;
+        padding: 10px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        background: #fcfdff;
+        min-height: 48px;
+      }
+
+      .panel {
+        margin-top: 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      #div-image-container {
+        display: none;
+        width: 100%;
+        height: min(70vh, 720px);
+        position: relative;
+        border: 2px solid #2f7dd6;
+      }
+
+      #edit {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 1;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+      }
+
+      #edit:hover {
+        background: var(--accent-hover);
+      }
+
+      #edit:disabled {
+        background: #95a7b7;
+        cursor: not-allowed;
+      }
+
+      #normalized-result,
+      #normalized-result-after-editing {
+        display: none;
+        padding: 10px;
+      }
+
+      #normalized-result {
+        border: 2px solid #d05757;
+      }
+
+      #normalized-result-after-editing {
+        border: 2px solid #3d9a68;
+      }
+
+      #normalized-result p,
+      #normalized-result-after-editing p {
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+
+      #normalized-result canvas,
+      #normalized-result-after-editing canvas {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      @media (max-width: 768px) {
+        body {
+          padding: 12px;
+        }
+
+        .app-shell {
+          padding: 14px;
+        }
+
+        #div-image-container {
+          height: 58vh;
+        }
+
+        #edit {
+          font-size: 12px;
+          padding: 8px 10px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="app-shell">
+      <h1>Detect the boundary of a document and normalize it</h1>
+      <p class="subtitle">Upload an image, adjust the detected quad if needed, then normalize it.</p>
+
+      <div class="file-input">
+        <input type="file" accept=".jpg,.jpeg,.icon,.gif,.svg,.webp,.png,.bmp" />
+      </div>
+      <div id="div-result-container"></div>
+
+      <div id="div-image-container" class="panel">
+        <button onclick="normalizeUsingCustomQuads()" id="edit">
+          Normalize after adjusting quads manually in this image
+        </button>
+      </div>
+      <div id="normalized-result" class="panel">
+        <p>Auto normalized result</p>
+      </div>
+      <div id="normalized-result-after-editing" class="panel">
+        <p>Result after changing quads</p>
+      </div>
+    </main>
+
+    <script>
+      let quads = [];
+      let cameraEnhancer = null;
+      let router = null;
+      let items;
+      let layer = null;
+      let originalImage;
+      let imageEditorView;
+      let promiseCVRReady;
+      let frameCount = 0;
+      let result = null;
+      const editButton = document.querySelector("#edit");
+      const btnStart = document.querySelector("#start-detecting");
+      const btnRestart = document.querySelector("#restart-detecting");
+      const cameraViewContainer = document.querySelector("#div-ui-container");
+      const normalizedImageContainer = document.querySelector("#normalized-result");
+      const btnEdit = document.querySelector("#confirm-quad-for-normalization");
+      const btnNormalize = document.querySelector("#normalize-with-confirmed-quad");
+      const imageEditorViewContainer = document.querySelector("#div-image-container");
+      const autoNormalize = document.querySelector("#auto-normalize");
+      const editedNormalizedResult = document.querySelector("#normalized-result-after-editing");
+
+      const applyColorOutputSettings = (settings) => {
+        // Keep normalized output in color (same behavior as the other sample).
+        if (settings?.documentSettings) {
+          settings.documentSettings.colourMode = 2;
+        }
+        if (Dynamsoft?.DDN?.EnumImageColourMode?.ICM_COLOUR !== undefined) {
+          settings.colourMode = Dynamsoft.DDN.EnumImageColourMode.ICM_COLOUR;
+        }
+      };
+
+      /** LICENSE ALERT - README
+       * To use the library, you need to first call the method initLicense() to initialize the license using a license key string.
+       */
+      Dynamsoft.License.LicenseManager.initLicense(
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+      );
+      /**
+       * The license "DLS2eyJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9" is a temporary license for testing good for 24 hours.
+       * You can visit https://www.dynamsoft.com/customer/license/trialLicense?utm_source=github&architecture=dcv&product=ddn&package=js to get your own trial license good for 30 days.
+       * LICENSE ALERT - THE END
+       */
+
+      /**
+       * Preloads the `DocumentNormalizer` module, saving time in preparing for document border detection and image normalization.
+       */
+      Dynamsoft.Core.CoreModule.loadWasm(["DDN"]);
+      const input = document.querySelector("input");
+      const divResultContainer = document.querySelector("#div-result-container");
+
+      const pRouter = Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+      let initDCE = async () => {
+        const view = await Dynamsoft.DCE.CameraView.createInstance();
+
+        cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(view);
+
+        imageEditorView = await Dynamsoft.DCE.ImageEditorView.createInstance(imageEditorViewContainer);
+      };
+
+      const clearPreviewCanvas = (container) => {
+        container.querySelectorAll("canvas, img").forEach((el) => el.remove());
+      };
+
+      const resetForNewUpload = () => {
+        result = null;
+        items = null;
+
+        divResultContainer.textContent = "";
+        imageEditorViewContainer.style.display = "none";
+
+        normalizedImageContainer.style.display = "none";
+        editedNormalizedResult.style.display = "none";
+        clearPreviewCanvas(normalizedImageContainer);
+        clearPreviewCanvas(editedNormalizedResult);
+
+        editButton.innerText = "Normalize after adjusting quads manually in this image";
+        editButton.disabled = false;
+
+        if (imageEditorView) {
+          imageEditorView.getAllDrawingLayers().forEach((drawingLayer) => drawingLayer.clearDrawingItems());
+        }
+      };
+
+      initDCE();
+
+      input.onchange = async () => {
+        try {
+          if (!input.files[0]) return;
+
+          resetForNewUpload();
+
+          router = await pRouter;
+          // let settingsFromFile = await router.initSettings("ddn.json");
+          // if(settingsFromFile)
+          // await router.outputSettingsToFile("DetectDocumentBoundaries_Default", "read-ddn-file", true);
+
+          const settings = await router.getSimplifiedSettings("DetectDocumentBoundaries_Default");
+          settings.outputOriginalImage = true;
+
+          await router.updateSettings("DetectDocumentBoundaries_Default", settings);
+
+          // Create a Blob from the image data with the same type as the original image and trying blob
+          const imageBlob = new Blob([input.files[0]], {
+            type: input.files[0].type,
+          });
+          console.log("imageBlob,", imageBlob);
+          result = await router.capture(imageBlob, "DetectDocumentBoundaries_Default");
+          console.log("result,", result);
+          // result = await router.capture(
+          //   input.files[0],
+          //   "DetectDocumentBoundaries_Default"
+          // );
+          items = result.items;
+
+          const detectedQuad = result.items.find(
+            (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_DETECTED_QUAD,
+          );
+          if (!detectedQuad) {
+            throw new Error("No document boundary detected in the uploaded image.");
+          }
+
+          divResultContainer.innerText = "Result:\n" + JSON.stringify(detectedQuad.location, null, 4);
+          autonormalize();
+        } catch (ex) {
+          let errMsg = ex.message || ex;
+          console.error(errMsg);
+          alert(errMsg);
+        }
+      };
+
+      /**
+       * Creates a CaptureVisionRouter instance and configure the task to detect document boundaries.
+       * Also, make sure the original image is returned after it has been processed.
+       */
+      const autonormalize = async () => {
+        editQuads();
+
+        /**
+         * Sets the result types to be returned.
+         * Because we need to normalize the original image later, here we set the return result type to
+         * include both the quadrilateral and original image data.
+         */
+        let newSettings = await router.getSimplifiedSettings("NormalizeDocument_Default");
+        newSettings.roiMeasuredInPercentage = 0;
+        const detectedQuad = result.items.find(
+          (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_DETECTED_QUAD,
+        );
+        if (!detectedQuad) {
+          throw new Error("No detected quad available for normalization.");
+        }
+
+        newSettings.roi.points = detectedQuad.location.points;
+  applyColorOutputSettings(newSettings);
+        await router.updateSettings("NormalizeDocument_Default", newSettings);
+
+        const originalImage = result.items.filter(
+          (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_ORIGINAL_IMAGE,
+        );
+        const originalImageData = originalImage.length && originalImage[0].imageData;
+
+        let normalizeResult = await router.capture(originalImageData, "NormalizeDocument_Default");
+        normalizedImageContainer.style.display = "block";
+        clearPreviewCanvas(normalizedImageContainer);
+
+        normalizedImageContainer.append(normalizeResult.items[0].toCanvas());
+      };
+
+      const editQuads = async () => {
+        /* Creates an image editing layer for drawing found document boundaries. */
+        layer = await imageEditorView.createDrawingLayer();
+
+        if (result.items.length <= 1) return;
+
+        let imageData = result.items.filter((item) => {
+          return item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_ORIGINAL_IMAGE;
+        })[0].imageData;
+
+        let firstQuadItem = result.items.filter((item) => {
+          return item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_DETECTED_QUAD;
+        })[0];
+
+        let points = firstQuadItem.location.points;
+
+        if (imageEditorView.getAllDrawingLayers().length > 0) {
+          layer = imageEditorView.getAllDrawingLayers()[0];
+        } else {
+          layer = imageEditorView.createDrawingLayer();
+        }
+
+        imageEditorViewContainer.style.display = "block";
+        // Call the setOriginalImage function and pass the loaded image element
+        imageEditorView.setOriginalImage(imageData);
+
+        let style = {
+          fillStyle: "rgba(250, 0, 0, 0.3)",
+          lineWidth: imageData.stride / 150,
+          paintMode: "strokeAndFill",
+        };
+
+        layer.setDefaultStyle(Dynamsoft.DCE.DrawingStyleManager.createDrawingStyle(style));
+
+        const quad = new Dynamsoft.DCE.QuadDrawingItem({ points });
+        layer.setDrawingItems([quad]);
+        quad._getFabricObject().cornerSize = imageData.stride / 150;
+        layer.renderAll();
+        layer.fabricCanvas.setActiveObject(quad._getFabricObject());
+        // quads.push(quad);
+        // layer.addDrawingItems(quads);
+      };
+      const normalizeUsingCustomQuads = async (quads) => {
+        let imageData = result.items.filter((item) => {
+          return item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_ORIGINAL_IMAGE;
+        })[0].imageData;
+        let seletedItems = imageEditorView.getSelectedDrawingItems();
+        let quad;
+        if (seletedItems.length) {
+          quad = seletedItems[0].getQuad();
+          console.log("quads,", quad);
+        } else {
+          const detectedQuad = items.find(
+            (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_DETECTED_QUAD,
+          );
+          if (!detectedQuad) {
+            throw new Error("No detected quad available for manual normalization.");
+          }
+          quad = detectedQuad.location;
+        }
+        const isPointOverBoundary = (point) => {
+          if (point.x < 0 || point.x > imageData.width || point.y < 0 || point.y > imageData.height) {
+            return true;
+          } else {
+            return false;
+          }
+        };
+        /* Check if the points beyond the boundaries of the image. */
+        if (quad.points.some((point) => isPointOverBoundary(point))) {
+          alert(
+            "The document boundaries extend beyond the boundaries of the image and cannot be used to normalize the document.",
+          );
+          return;
+        }
+
+        // /* Hides the imageEditorView. */
+        // imageEditorViewContainer.style.display = "none";
+        // /* Removes the old normalized image if any. */
+        // normalizedImageContainer.innerHTML = "";
+        /**
+         * Sets the coordinates of the ROI (region of interest)
+         * in the built-in template "NormalizeDocument_Default".
+         */
+
+        let newSettings = await router.getSimplifiedSettings("NormalizeDocument_Default");
+        newSettings.roiMeasuredInPercentage = 0;
+        newSettings.roi.points = quad.points;
+        applyColorOutputSettings(newSettings);
+        await router.updateSettings("NormalizeDocument_Default", newSettings);
+        /* Executes the normalization and shows the result on the page. */
+        let normalizeResult = await router.capture(imageData, "NormalizeDocument_Default");
+        if (normalizeResult.items[0]) {
+          clearPreviewCanvas(editedNormalizedResult);
+          editedNormalizedResult.append(normalizeResult.items[0].toCanvas());
+          editedNormalizedResult.style.display = "block";
+        }
+        layer.clearDrawingItems();
+        editButton.innerText = "check the results below in green container";
+        editButton.disabled = true;
+      };
+    </script>
+  </body>
+</html>
