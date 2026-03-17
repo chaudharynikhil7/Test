@@ -83,6 +83,13 @@
         font-size: 0.95rem;
       }
 
+      #liveChecks {
+        margin-top: 8px;
+        color: #24415f;
+        font-size: 0.86rem;
+        font-family: Consolas, "Courier New", monospace;
+      }
+
       #cameraViewContainer {
         width: 100%;
         max-width: 900px;
@@ -161,6 +168,7 @@
         <button id="startButton" onclick="startDetection()">Start Detection</button>
         <span id="status">Ready</span>
       </div>
+      <div id="liveChecks">Checks: idle</div>
 
       <div id="cameraViewContainer">
         <div id="scanStepBadge"></div>
@@ -173,10 +181,12 @@
       const scanStepBadge = document.querySelector("#scanStepBadge");
       const startButton = document.querySelector("#startButton");
       const statusLabel = document.querySelector("#status");
+      const liveChecksLabel = document.querySelector("#liveChecks");
       let router;
       let cameraEnhancer;
       let originalImageData = null;
       let frameCount = 0;
+      let totalFramesSeen = 0;
       const REQUIRED_CONSECUTIVE_FRAMES = 1;
       let isProcessingResult = false;
       let scanStep = "front";
@@ -245,6 +255,15 @@
         }
       };
 
+      const updateLiveChecks = ({ hasQuad, quadVerified, hasBarcodeInThisFrame, hasBarcodeCached }) => {
+        const canProceed = frameCount >= REQUIRED_CONSECUTIVE_FRAMES && (scanStep === "front" || hasBarcodeCached);
+        liveChecksLabel.textContent =
+          `Checks | step=${scanStep.toUpperCase()} | frame=${totalFramesSeen} | ` +
+          `quad=${hasQuad ? "Y" : "N"} | quadVerified=${quadVerified ? "Y" : "N"} | ` +
+          `barcodeInFrame=${hasBarcodeInThisFrame ? "Y" : "N"} | barcodeCaptured=${hasBarcodeCached ? "Y" : "N"} | ` +
+          `ready=${canProceed ? "Y" : "N"}`;
+      };
+
       async function startDetection() {
         if (!router || !cameraEnhancer) {
           statusLabel.textContent = "Initializing scanner...";
@@ -253,6 +272,7 @@
 
         scanStep = "front";
         frameCount = 0;
+        totalFramesSeen = 0;
         isProcessingResult = false;
         latestBarcodeData = null;
         frontNormalizedCanvas = null;
@@ -265,6 +285,7 @@
         cameraViewContainer.style.display = "block";
         scanStepBadge.style.display = "inline-block";
         updateScanStepBadge();
+        liveChecksLabel.textContent = "Checks: camera started";
         await cameraEnhancer.open();
         await cameraEnhancer.setPixelFormat(Dynamsoft.Core.EnumImagePixelFormat.IPF_ARGB_8888);
         await router.startCapturing(DETECT_TEMPLATE_NAME);
@@ -339,6 +360,15 @@
           return;
         }
 
+        totalFramesSeen++;
+
+        const barcodeDataInFrame = getBarcodeDataFromResult(result);
+        if (barcodeDataInFrame) {
+          latestBarcodeData = barcodeDataInFrame;
+        }
+        const hasBarcodeCached = !!latestBarcodeData;
+        const hasBarcodeInThisFrame = !!barcodeDataInFrame;
+
         // console.log(result);
         /* Saves the image data of the current frame for subsequent image editing. */
         const originalImage = result.items.filter(
@@ -350,18 +380,32 @@
           (a, b) => (b.location?.area || 0) - (a.location?.area || 0),
         );
         const detectedQuadItem = detectedQuadCandidates[0];
-        if (!detectedQuadItem) {
-          frameCount = 0;
-          return;
-        }
+        const hasQuad = !!detectedQuadItem;
+        const quadVerified =
+          hasQuad && detectedQuadItem.crossVerificationStatus === Dynamsoft.Core.EnumCrossVerificationStatus.CVS_PASSED;
 
-        const barcodeDataInFrame = getBarcodeDataFromResult(result);
-        if (barcodeDataInFrame) {
-          latestBarcodeData = barcodeDataInFrame;
-        }
-
-        if (detectedQuadItem.crossVerificationStatus === Dynamsoft.Core.EnumCrossVerificationStatus.CVS_PASSED) {
+        if (quadVerified) {
           frameCount++;
+        } else {
+          frameCount = 0;
+        }
+
+        updateLiveChecks({
+          hasQuad,
+          quadVerified,
+          hasBarcodeInThisFrame,
+          hasBarcodeCached,
+        });
+
+        if (!detectedQuadItem) {
+          if (scanStep === "back") {
+            statusLabel.textContent = hasBarcodeCached
+              ? "PDF417 found. Waiting for card border on back side..."
+              : "Waiting for both back card border and PDF417 barcode...";
+          } else {
+            statusLabel.textContent = "Waiting for front card border...";
+          }
+          return;
         }
 
         if (frameCount < REQUIRED_CONSECUTIVE_FRAMES) {
@@ -369,8 +413,8 @@
           return;
         }
 
-        if (scanStep === "back" && !latestBarcodeData) {
-          statusLabel.textContent = "Boundary found. Waiting for PDF417 barcode read...";
+        if (scanStep === "back" && !hasBarcodeCached) {
+          statusLabel.textContent = "Card border found. Waiting for PDF417 barcode read on back side...";
           return;
         }
 
