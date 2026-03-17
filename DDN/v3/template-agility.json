@@ -1,0 +1,406 @@
+{
+  "BarcodeReaderTaskSettingOptions": [
+    {
+      "BarcodeFormatIds": ["BF_PDF417"],
+      "ExpectedBarcodesCount": 1,
+      "Name": "pdf_417_task",
+      "SectionArray": [
+        {
+          "ImageParameterName": "ip_localize_barcode",
+          "Section": "ST_REGION_PREDETECTION",
+          "StageArray": [
+            {
+              "Stage": "SST_PREDETECT_REGIONS"
+            }
+          ]
+        },
+        {
+          "ImageParameterName": "ip_localize_barcode",
+          "Section": "ST_BARCODE_LOCALIZATION",
+          "StageArray": [
+            {
+              "LocalizationModes": [
+                {
+                  "Mode": "LM_CONNECTED_BLOCKS"
+                },
+                {
+                  "Mode": "LM_LINES"
+                }
+              ],
+              "Stage": "SST_LOCALIZE_CANDIDATE_BARCODES"
+            },
+            {
+              "Stage": "SST_LOCALIZE_BARCODES"
+            }
+          ]
+        },
+        {
+          "ImageParameterName": "ip_decode_barcode",
+          "Section": "ST_BARCODE_DECODING",
+          "StageArray": [
+            {
+              "Stage": "SST_RESIST_DEFORMATION"
+            },
+            {
+              "Stage": "SST_COMPLEMENT_BARCODE"
+            },
+            {
+              "Stage": "SST_SCALE_BARCODE_IMAGE"
+            },
+            {
+              "Stage": "SST_DECODE_BARCODES"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "CaptureVisionTemplates": [
+    {
+      "ImageROIProcessingNameArray": ["roi-detect-document-boundaries", "roi-decode-barcode"],
+      "Name": "DetectDriversLicense",
+      "OutputOriginalImage": 1,
+      "SemanticProcessingNameArray": ["sp_pdf_417"]
+    },
+    {
+      "ImageROIProcessingNameArray": ["roi-normalize-document"],
+      "Name": "NormalizeDriversLicense"
+    }
+  ],
+  "CodeParserTaskSettingOptions": [
+    {
+      "CodeSpecifications": ["AAMVA_DL_ID", "AAMVA_DL_ID_WITH_MAG_STRIPE"],
+      "Name": "dcp_pdf_417"
+    }
+  ],
+  "DocumentNormalizerTaskSettingOptions": [
+    {
+      "Name": "task-detect-document-boundaries",
+      "SectionArray": [
+        {
+          "ImageParameterName": "ip-detect",
+          "Section": "ST_REGION_PREDETECTION",
+          "StageArray": [
+            {
+              "Stage": "SST_PREDETECT_REGIONS"
+            }
+          ]
+        },
+        {
+          "ImageParameterName": "ip-detect",
+          "Section": "ST_DOCUMENT_DETECTION",
+          "StageArray": [
+            {
+              "Stage": "SST_ASSEMBLE_LONG_LINES"
+            },
+            {
+              "Stage": "SST_ASSEMBLE_LOGICAL_LINES"
+            },
+            {
+              "Stage": "SST_DETECT_CORNERS"
+            },
+            {
+              "Stage": "SST_DETECT_EDGES"
+            },
+            {
+              "QuadrilateralDetectionModes": [
+                {
+                  "MinQuadrilateralAreaRatio": 5,
+                  "Mode": "QDM_GENERAL"
+                }
+              ],
+              "Stage": "SST_DETECT_QUADS"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "task-normalize-document",
+      "SectionArray": [
+        {
+          "ImageParameterName": "ip-normalize",
+          "Section": "ST_DOCUMENT_DESKEWING",
+          "StageArray": [
+            {
+              "Stage": "SST_DESKEW_IMAGE"
+            }
+          ]
+        },
+        {
+          "ImageParameterName": "ip-normalize",
+          "Section": "ST_IMAGE_ENHANCEMENT",
+          "StageArray": [
+            {
+              "Stage": "SST_ENHANCE_IMAGE"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ImageParameterOptions": [
+    {
+      "ApplicableStages": [
+        {
+          "Stage": "SST_INPUT_COLOR_IMAGE"
+        },
+        {
+          "Stage": "SST_SCALE_IMAGE"
+        },
+        {
+          "Stage": "SST_CONVERT_TO_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_TRANSFORM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_ENHANCE_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_IMAGE"
+        },
+        {
+          "Stage": "SST_DETECT_TEXTURE"
+        },
+        {
+          "Stage": "SST_REMOVE_TEXTURE_FROM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_TEXTURE_REMOVED_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_FIND_CONTOURS"
+        },
+        {
+          "Stage": "SST_DETECT_SHORTLINES"
+        },
+        {
+          "Stage": "SST_ASSEMBLE_LINES"
+        },
+        {
+          "Stage": "SST_DETECT_TEXT_ZONES"
+        },
+        {
+          "Stage": "SST_REMOVE_TEXT_ZONES_FROM_BINARY"
+        }
+      ],
+      "Name": "ip_localize_barcode"
+    },
+    {
+      "ApplicableStages": [
+        {
+          "Stage": "SST_INPUT_COLOR_IMAGE"
+        },
+        {
+          "ImageScaleSetting": {
+            "EdgeLengthThreshold": 99999,
+            "ScaleType": "ST_SCALE_DOWN"
+          },
+          "Stage": "SST_SCALE_IMAGE"
+        },
+        {
+          "Stage": "SST_CONVERT_TO_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_TRANSFORM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_ENHANCE_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_IMAGE"
+        },
+        {
+          "Stage": "SST_DETECT_TEXTURE"
+        },
+        {
+          "Stage": "SST_REMOVE_TEXTURE_FROM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_TEXTURE_REMOVED_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_FIND_CONTOURS"
+        },
+        {
+          "Stage": "SST_DETECT_SHORTLINES"
+        },
+        {
+          "Stage": "SST_ASSEMBLE_LINES"
+        },
+        {
+          "Stage": "SST_DETECT_TEXT_ZONES"
+        },
+        {
+          "Stage": "SST_REMOVE_TEXT_ZONES_FROM_BINARY"
+        }
+      ],
+      "Name": "ip_decode_barcode"
+    },
+    {
+      "ApplicableStages": [
+        {
+          "Stage": "SST_INPUT_COLOR_IMAGE"
+        },
+        {
+          "Stage": "SST_SCALE_IMAGE"
+        },
+        {
+          "ColourConversionModes": [
+            {
+              "Mode": "CICM_GENERAL"
+            },
+            {
+              "Mode": "CICM_EDGE_ENHANCEMENT"
+            },
+            {
+              "Mode": "CICM_HSV"
+            }
+          ],
+          "Stage": "SST_CONVERT_TO_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_TRANSFORM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_ENHANCE_GRAYSCALE"
+        },
+        {
+          "BinarizationModes": [
+            {
+              "BlockSizeX": 25,
+              "BlockSizeY": 25,
+              "EnableFillBinaryVacancy": 0,
+              "Mode": "BM_LOCAL_BLOCK",
+              "ThresholdCompensation": 5
+            }
+          ],
+          "Stage": "SST_BINARIZE_IMAGE"
+        },
+        {
+          "Stage": "SST_DETECT_TEXTURE",
+          "TextureDetectionModes": [
+            {
+              "Mode": "TDM_GENERAL_WIDTH_CONCENTRATION",
+              "Sensitivity": 8
+            }
+          ]
+        },
+        {
+          "Stage": "SST_REMOVE_TEXTURE_FROM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_TEXTURE_REMOVED_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_FIND_CONTOURS"
+        },
+        {
+          "Stage": "SST_DETECT_SHORTLINES"
+        },
+        {
+          "Stage": "SST_ASSEMBLE_LINES"
+        },
+        {
+          "Stage": "SST_DETECT_TEXT_ZONES",
+          "TextDetectionMode": {
+            "Direction": "HORIZONTAL",
+            "Mode": "TTDM_WORD",
+            "Sensitivity": 7
+          }
+        },
+        {
+          "Stage": "SST_REMOVE_TEXT_ZONES_FROM_BINARY"
+        }
+      ],
+      "Name": "ip-detect"
+    },
+    {
+      "ApplicableStages": [
+        {
+          "Stage": "SST_INPUT_COLOR_IMAGE"
+        },
+        {
+          "Stage": "SST_SCALE_IMAGE"
+        },
+        {
+          "Stage": "SST_CONVERT_TO_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_TRANSFORM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_ENHANCE_GRAYSCALE"
+        },
+        {
+          "BinarizationModes": [
+            {
+              "EnableFillBinaryVacancy": 0,
+              "Mode": "BM_LOCAL_BLOCK"
+            }
+          ],
+          "Stage": "SST_BINARIZE_IMAGE"
+        },
+        {
+          "Stage": "SST_DETECT_TEXTURE"
+        },
+        {
+          "Stage": "SST_REMOVE_TEXTURE_FROM_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_BINARIZE_TEXTURE_REMOVED_GRAYSCALE"
+        },
+        {
+          "Stage": "SST_FIND_CONTOURS"
+        },
+        {
+          "Stage": "SST_DETECT_SHORTLINES"
+        },
+        {
+          "Stage": "SST_ASSEMBLE_LINES"
+        },
+        {
+          "Stage": "SST_DETECT_TEXT_ZONES",
+          "TextDetectionMode": {
+            "Direction": "HORIZONTAL",
+            "Mode": "TTDM_WORD",
+            "Sensitivity": 7
+          }
+        },
+        {
+          "Stage": "SST_REMOVE_TEXT_ZONES_FROM_BINARY"
+        }
+      ],
+      "Name": "ip-normalize"
+    }
+  ],
+  "SemanticProcessingOptions": [
+    {
+      "Name": "sp_pdf_417",
+      "ReferenceObjectFilter": {
+        "ReferenceTargetROIDefNameArray": ["roi-decode-barcode"]
+      },
+      "TaskSettingNameArray": ["dcp_pdf_417"]
+    }
+  ],
+  "TargetROIDefOptions": [
+    {
+      "Name": "roi-detect-document-boundaries",
+      "TaskSettingNameArray": ["task-detect-document-boundaries"]
+    },
+    {
+      "Location": {
+        "ReferenceObjectFilter": {
+          "ReferenceTargetROIDefNameArray": ["roi-detect-document-boundaries"]
+        }
+      },
+      "Name": "roi-decode-barcode",
+      "TaskSettingNameArray": ["pdf_417_task"]
+    },
+    {
+      "Name": "roi-normalize-document",
+      "TaskSettingNameArray": ["task-normalize-document"]
+    }
+  ]
+}

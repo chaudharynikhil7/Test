@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document Boundary Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-bundle@3.2.5000/dist/dcv.bundle.js"></script>
+    <style>
+      :root {
+        --bg-start: #eef5ff;
+        --bg-end: #edfdf5;
+        --panel: #ffffff;
+        --text: #1f2a37;
+        --muted: #5b6472;
+        --primary: #0066d6;
+        --primary-hover: #0053ae;
+        --border: #dbe4ef;
+        --shadow: 0 12px 28px rgba(18, 47, 89, 0.09);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background: linear-gradient(140deg, var(--bg-start), var(--bg-end));
+        padding: 20px;
+      }
+
+      .app {
+        max-width: 1050px;
+        margin: 0 auto;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.5rem;
+      }
+
+      .subtitle {
+        margin: 0 0 14px;
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: var(--primary-hover);
+      }
+
+      button:disabled {
+        background: #94a7bd;
+        cursor: not-allowed;
+      }
+
+      #status {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      #cameraViewContainer {
+        width: 100%;
+        max-width: 900px;
+        aspect-ratio: 16 / 10;
+        min-height: 260px;
+        margin-top: 6px;
+        display: none;
+        border: 2px solid #9bb9de;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f6f9ff;
+      }
+
+      #normalized-result {
+        margin-top: 14px;
+        display: none;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: #f9fbff;
+      }
+
+      #normalized-result p {
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+
+      #normalized-result canvas {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="app">
+      <h1>Detect the Boundary of the Document</h1>
+      <p class="subtitle">The scanner waits for stable detections and stops after returning one normalized image.</p>
+
+      <div class="toolbar">
+        <button id="startButton" onclick="startDetection()">Start Detection</button>
+        <span id="status">Ready</span>
+      </div>
+
+      <div id="cameraViewContainer"></div>
+      <div id="normalized-result"></div>
+    </main>
+
+    <script>
+      const cameraViewContainer = document.querySelector("#cameraViewContainer");
+      const startButton = document.querySelector("#startButton");
+      const statusLabel = document.querySelector("#status");
+      let router;
+      let cameraEnhancer;
+      let originalImageData = null;
+      let frameCount = 0;
+      const REQUIRED_CONSECUTIVE_FRAMES = 30;
+      let isProcessingResult = false;
+      const CUSTOM_TEMPLATE_URL = "./template-agility.json";
+      const DETECT_TEMPLATE_NAME = "DetectDriversLicense";
+      const NORMALIZE_TEMPLATE_NAME = "NormalizeDriversLicense";
+
+      const normalizedImageContainer = document.querySelector("#normalized-result");
+
+      Dynamsoft.License.LicenseManager.initLicense(
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+      );
+      Dynamsoft.Core.CoreModule.loadWasm(["DDN"]);
+
+      (async function () {
+        try {
+          router = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+          let view = await Dynamsoft.DCE.CameraView.createInstance();
+          cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(view);
+          cameraViewContainer.append(view.getUIElement());
+          router.setInput(cameraEnhancer);
+
+          // In this SDK version, initializing from a JSON file path is more reliable
+          // than passing a parsed object.
+          await router.initSettings(CUSTOM_TEMPLATE_URL);
+
+          /* Defines the result receiver for the task.*/
+          const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
+          resultReceiver.onCapturedResultReceived = handleCapturedResult;
+          router.addResultReceiver(resultReceiver);
+          statusLabel.textContent = "Custom template loaded. Ready.";
+        } catch (error) {
+          console.error(error);
+          statusLabel.textContent =
+            "Failed to initialize custom templates. Serve this file over HTTP/HTTPS and verify template names.";
+          startButton.disabled = true;
+        }
+      })();
+
+      const stopDetectionUI = async () => {
+        await router.stopCapturing();
+        if (cameraEnhancer?.isOpen?.()) {
+          await cameraEnhancer.close();
+        }
+        cameraViewContainer.style.display = "none";
+      };
+
+      async function startDetection() {
+        if (!router || !cameraEnhancer) {
+          statusLabel.textContent = "Initializing scanner...";
+          return;
+        }
+
+        frameCount = 0;
+        isProcessingResult = false;
+        normalizedImageContainer.style.display = "none";
+        normalizedImageContainer.innerHTML = "";
+
+        startButton.disabled = true;
+        statusLabel.textContent = "Opening camera...";
+        cameraViewContainer.style.display = "block";
+        await cameraEnhancer.open();
+        await cameraEnhancer.setPixelFormat(Dynamsoft.Core.EnumImagePixelFormat.IPF_ARGB_8888);
+        await router.startCapturing(DETECT_TEMPLATE_NAME);
+        statusLabel.textContent = "Detecting document boundary...";
+      }
+
+      async function handleCapturedResult(result) {
+        if (isProcessingResult) {
+          return;
+        }
+
+        // console.log(result);
+        /* Saves the image data of the current frame for subsequent image editing. */
+        const originalImage = result.items.filter(
+          (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_ORIGINAL_IMAGE,
+        );
+        originalImageData = originalImage.length && originalImage[0].imageData;
+
+        const detectedQuadItem = result.items.find(
+          (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_DETECTED_QUAD,
+        );
+        if (!detectedQuadItem) {
+          frameCount = 0;
+          return;
+        }
+
+        frameCount++;
+        if (frameCount < REQUIRED_CONSECUTIVE_FRAMES) {
+          statusLabel.textContent = `Stabilizing detection: ${frameCount}/${REQUIRED_CONSECUTIVE_FRAMES}`;
+          return;
+        }
+        frameCount = 0;
+        isProcessingResult = true;
+        statusLabel.textContent = "Normalizing document...";
+        try {
+          const quadPoints = detectedQuadItem.location.points;
+          console.log("result", result);
+          console.log("detected quad is this", quadPoints);
+          let normalizedResult = await performNormalization(quadPoints);
+
+          normalizedImageContainer.innerHTML = "";
+          normalizedImageContainer.style.display = "block";
+          const title = document.createElement("p");
+          title.textContent = "Normalized result";
+          normalizedImageContainer.append(title);
+          normalizedImageContainer.append(normalizedResult.items[0].toCanvas());
+
+          await stopDetectionUI();
+          statusLabel.textContent = "Done. Capture stopped after first normalized image.";
+          startButton.disabled = false;
+          startButton.textContent = "Scan Again";
+        } catch (error) {
+          console.error(error);
+          statusLabel.textContent = "Normalization failed. Please try again.";
+          startButton.disabled = false;
+        } finally {
+          isProcessingResult = false;
+        }
+      }
+
+      const performNormalization = async (newPoints) => {
+        if (!originalImageData) {
+          throw new Error("Original image data is not available for normalization.");
+        }
+
+        let settings = await router.getSimplifiedSettings(NORMALIZE_TEMPLATE_NAME);
+        settings.roiMeasuredInPercentage = 0;
+        settings.roi.points = newPoints;
+        await router.updateSettings(NORMALIZE_TEMPLATE_NAME, settings);
+
+        let normalizeResult = await router.capture(originalImageData, NORMALIZE_TEMPLATE_NAME);
+
+        return normalizeResult;
+      };
+    </script>
+  </body>
+</html>
