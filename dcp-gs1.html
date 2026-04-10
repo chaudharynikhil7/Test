@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DCP GS1 Parser (DCV Bundle Only)</title>
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-bundle@3.2.5000/dist/dcv.bundle.js"></script>
+    <style>
+      :root {
+        --bg: #eef4ff;
+        --bg-2: #dbeafe;
+        --panel: #ffffff;
+        --ink: #0b1220;
+        --muted: #4b5b74;
+        --border: #d5deec;
+        --accent: #126fd5;
+        --accent-hover: #0e5eb5;
+        --accent-soft: #e8f1ff;
+        --teal: #00a6a6;
+        --error: #b91c1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(1300px 600px at -8% -12%, rgba(18, 111, 213, 0.18), transparent 60%),
+          radial-gradient(1000px 600px at 108% -10%, rgba(0, 166, 166, 0.16), transparent 56%),
+          linear-gradient(180deg, var(--bg), var(--bg-2));
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1120px;
+        margin: 20px auto 28px;
+        padding: 0 16px;
+      }
+
+      .brandbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        background: linear-gradient(90deg, #0d2a52, #123e75 55%, #0e7f87);
+        color: #eaf4ff;
+        box-shadow: 0 10px 30px rgba(13, 42, 82, 0.24);
+      }
+
+      .brand-title {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+
+      .brand-sub {
+        font-size: 12px;
+        opacity: 0.92;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 14px 38px rgba(23, 37, 84, 0.12);
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 30px;
+        letter-spacing: 0.2px;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .sub {
+        color: var(--muted);
+        margin-top: 4px;
+        margin-bottom: 16px;
+        border-left: 4px solid var(--accent);
+        background: #f9fbff;
+        padding: 10px 12px;
+        border-radius: 10px;
+        line-height: 1.5;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 156px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 14px;
+        color: #0f172a;
+        background: #fcfdff;
+        resize: vertical;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #7db0eb;
+        box-shadow: 0 0 0 4px rgba(18, 111, 213, 0.14);
+      }
+
+      button {
+        border-radius: 11px;
+        border: 1px solid var(--border);
+        background: #f8fbff;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #12314f;
+        cursor: pointer;
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.2s ease,
+          background 0.2s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(18, 49, 79, 0.12);
+      }
+
+      button.primary {
+        background: linear-gradient(120deg, var(--accent), #2d85e4);
+        border-color: var(--accent);
+        color: #ffffff;
+      }
+
+      button.primary:hover {
+        background: linear-gradient(120deg, var(--accent-hover), #226ec0);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .status {
+        margin-top: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #155e75;
+        background: #ecfeff;
+        border: 1px solid #bae6fd;
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+
+      .status.error {
+        color: var(--error);
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+
+      pre {
+        margin: 10px 0 0;
+        background: linear-gradient(180deg, #0d1729, #0a1220);
+        color: #d7e5ff;
+        border: 1px solid #1b2f52;
+        border-radius: 12px;
+        padding: 12px;
+        overflow: auto;
+        min-height: 250px;
+        font-size: 12px;
+      }
+
+      code {
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+
+      h3 {
+        margin: 18px 0 8px;
+        font-size: 17px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-top: 10px;
+        border: 1px solid #d7e1ef;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid #e8eef7;
+        text-align: left;
+        vertical-align: top;
+        padding: 9px;
+      }
+
+      th {
+        color: #10233e;
+        background: #eef4ff;
+        font-weight: 700;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #fbfdff;
+      }
+
+      tbody tr:hover {
+        background: #f2f8ff;
+      }
+
+      @media (max-width: 760px) {
+        .brandbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        h1 {
+          font-size: 25px;
+        }
+
+        .panel {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brandbar">
+        <div class="brand-title">Dynamsoft Capture Vision - GS1 Playground</div>
+        <div class="brand-sub">Client Demo | DCP + GS1 AI Parsing</div>
+      </div>
+
+      <div class="panel">
+        <h1>GS1 String Parser</h1>
+        <p class="sub">
+          Uses <code>loadSpec("GS1_AI")</code> with DCV bundle only. You can input real ASCII GS (0x1D) or escaped
+          <code>\\u001d</code>.<br />
+          Sample: 01095060001343521726010110ABC123\u001d2112345
+        </p>
+
+        <textarea id="inputText" placeholder="Paste GS1 string here"></textarea>
+
+        <div class="controls">
+          <button id="parseBtn" class="primary" type="button" disabled>Parse GS1</button>
+          <button id="sampleBtn" type="button" disabled>Load Escaped Sample</button>
+          <button id="sampleRawBtn" type="button" disabled>Load Real GS Sample</button>
+        </div>
+
+        <div id="status" class="status">Please wait, SDK is being loaded till all resources are loaded.</div>
+
+        <h3>Field Mapping</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Value</th>
+              <th>AI Code</th>
+              <th>Raw Segment</th>
+              <th>Validation Status</th>
+              <th>Mapping Status</th>
+            </tr>
+          </thead>
+          <tbody id="mappedBody">
+            <tr>
+              <td colspan="6">No parsed result yet.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Parsed Result (JSON)</h3>
+        <pre id="jsonOut">{}</pre>
+      </div>
+    </div>
+
+    <script>
+      const LICENSE =
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LU1UQXdNVGcwTlRBNUxYZGxZaTFVY21saGJGQnliMm8iLCJtYWluU2VydmVyVVJMIjoiaHR0cHM6Ly9tZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwib3JnYW5pemF0aW9uSUQiOiIxMDAxODQ1MDkiLCJzdGFuZGJ5U2VydmVyVVJMIjoiaHR0cHM6Ly9zZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwiY2hlY2tDb2RlIjozMDc3NTI2NjF9";
+
+      const SAMPLE_GS1 = "01095060001343521726010110ABC123\\u001d2112345";
+      const SAMPLE_GS1_RAW = "01095060001343521726010110ABC123" + String.fromCharCode(29) + "2112345";
+
+      const inputText = document.getElementById("inputText");
+      const parseBtn = document.getElementById("parseBtn");
+      const sampleBtn = document.getElementById("sampleBtn");
+      const sampleRawBtn = document.getElementById("sampleRawBtn");
+      const statusEl = document.getElementById("status");
+      const jsonOut = document.getElementById("jsonOut");
+      const mappedBody = document.getElementById("mappedBody");
+
+      let parserPromise;
+
+      function setStatus(text, isError = false) {
+        statusEl.textContent = text;
+        statusEl.classList.toggle("error", isError);
+      }
+
+      function decodeEscapedControls(text) {
+        return String(text || "")
+          .replace(/\\u001d/gi, "\u001d")
+          .replace(/\\n/g, "\n")
+          .replace(/\\r/g, "\r")
+          .replace(/\\t/g, "\t");
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function extractMappedRows(parsed) {
+        const resultInfo = parsed && Array.isArray(parsed.ResultInfo) ? parsed.ResultInfo : [];
+
+        return resultInfo.map((item) => {
+          const children =
+            Array.isArray(item.ChildFields) && Array.isArray(item.ChildFields[0]) ? item.ChildFields[0] : [];
+          const aiNode = children.find((node) => String(node.FieldName || "").endsWith("AI"));
+          const dataNode = children.find((node) => String(node.FieldName || "").endsWith("Data"));
+
+          return {
+            ai: item.FieldName || "",
+            meaning: aiNode && aiNode.Value ? aiNode.Value : "",
+            raw: item.RawValue || "",
+            value: dataNode && dataNode.Value != null ? dataNode.Value : item.Value || "",
+            validation: (dataNode && dataNode.ValidationStatus) || item.ValidationStatus || "",
+            mapping: (aiNode && aiNode.MappingStatus) || "",
+          };
+        });
+      }
+
+      function renderMappedValues(parsed) {
+        const rows = extractMappedRows(parsed);
+        if (!rows.length) {
+          mappedBody.innerHTML = '<tr><td colspan="6">No mapped values found.</td></tr>';
+          return;
+        }
+
+        mappedBody.innerHTML = rows
+          .map(
+            (row) =>
+              "<tr>" +
+              "<td>" +
+              escapeHtml(row.meaning) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(row.value) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(row.ai) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(row.raw) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(row.validation) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(row.mapping) +
+              "</td>" +
+              "</tr>",
+          )
+          .join("");
+      }
+
+      async function init() {
+        try {
+          parseBtn.disabled = true;
+          sampleBtn.disabled = true;
+          sampleRawBtn.disabled = true;
+          setStatus("Please wait, SDK is being loaded till all resources are loaded.");
+
+          Dynamsoft.License.LicenseManager.initLicense(LICENSE);
+          await Dynamsoft.DCP.CodeParserModule.loadSpec("GS1_AI");
+          parserPromise = Dynamsoft.DCP.CodeParser.createInstance();
+          await parserPromise;
+
+          parseBtn.disabled = false;
+          sampleBtn.disabled = false;
+          sampleRawBtn.disabled = false;
+          setStatus("SDK ready. Load sample or paste your GS1 string.");
+        } catch (error) {
+          parseBtn.disabled = true;
+          sampleBtn.disabled = true;
+          sampleRawBtn.disabled = true;
+          setStatus("SDK init failed: " + (error && error.message ? error.message : String(error)), true);
+        }
+      }
+
+      async function parseInput() {
+        const raw = inputText.value.trim();
+        if (!raw) {
+          setStatus("Please provide a GS1 string to parse.", true);
+          return;
+        }
+
+        try {
+          setStatus("Parsing GS1 string...");
+          const parser = await parserPromise;
+          const gs1Text = decodeEscapedControls(raw);
+          const parsedResultItem = await parser.parse(gs1Text);
+
+          if (parsedResultItem.exception) {
+            throw new Error(parsedResultItem.exceptionString || "Code parser returned an exception.");
+          }
+
+          const parsed = JSON.parse(parsedResultItem.jsonString);
+          jsonOut.textContent = JSON.stringify(parsed, null, 2);
+          renderMappedValues(parsed);
+          setStatus("Parsed successfully. CodeType: " + (parsed.CodeType || "Unknown"));
+        } catch (error) {
+          jsonOut.textContent = "{}";
+          mappedBody.innerHTML = '<tr><td colspan="6">No parsed result yet.</td></tr>';
+          setStatus("Parse failed: " + (error && error.message ? error.message : String(error)), true);
+        }
+      }
+
+      sampleBtn.addEventListener("click", () => {
+        inputText.value = SAMPLE_GS1;
+        setStatus("Escaped GS1 sample loaded. Click Parse GS1.");
+      });
+
+      sampleRawBtn.addEventListener("click", () => {
+        inputText.value = SAMPLE_GS1_RAW;
+        setStatus("Real GS sample loaded (includes ASCII 0x1D). Click Parse GS1.");
+      });
+
+      parseBtn.addEventListener("click", parseInput);
+
+      inputText.value = SAMPLE_GS1;
+      init();
+    </script>
+  </body>
+</html>
