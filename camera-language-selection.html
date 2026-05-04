@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DBR iOS Camera Test</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.4000/dist/dbr.bundle.js"></script>
+
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+      }
+
+      #controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+
+      #cameraSelect {
+        min-width: min(280px, 100%);
+        max-width: 100%;
+      }
+
+      #status {
+        color: #444;
+        font-size: 14px;
+      }
+
+      #cameraView {
+        width: 100%;
+        max-width: 640px;
+        aspect-ratio: 4 / 3;
+        min-height: 320px;
+        border: 1px solid #ccc;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          margin: 12px;
+        }
+
+        #controls {
+          align-items: stretch;
+        }
+
+        #controls label,
+        #cameraSelect,
+        #status {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Dynamsoft Barcode Reader – iOS Camera Test</h3>
+    <div id="controls">
+      <label for="cameraSelect">Camera:</label>
+      <select id="cameraSelect"></select>
+      <div id="status">Opening camera...</div>
+    </div>
+    <div id="cameraView"></div>
+
+    <script>
+      (async () => {
+        Dynamsoft.License.LicenseManager.initLicense(
+          "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+        );
+        Dynamsoft.Core.CoreModule.loadWasm();
+
+        const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
+        const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+        document.getElementById("cameraView").append(cameraView.getUIElement());
+
+        const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+        cvRouter.setInput(cameraEnhancer);
+
+        const cameraSelect = document.getElementById("cameraSelect");
+        const status = document.getElementById("status");
+
+        const normalizeLabel = (label) =>
+          (label || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const WIDE_CAMERA_HINTS = [
+          "wide",
+          "ultra wide",
+          "back wide",
+          "rear wide",
+          "grand angle",
+          "ultra grand angle",
+          "camera arriere grand angle",
+          "camera arriere ultra grand angle",
+        ];
+
+        const REAR_CAMERA_HINTS = ["back", "rear", "world", "arriere", "arriere-plan"];
+
+        const isFrontCamera = (camera) => {
+          const label = normalizeLabel(camera.label);
+          return (
+            camera?.facingMode === "user" ||
+            label.includes("front") ||
+            label.includes("user") ||
+            label.includes("avant")
+          );
+        };
+
+        const isWideCamera = (camera) => {
+          const label = normalizeLabel(camera.label);
+          return WIDE_CAMERA_HINTS.some((hint) => label.includes(hint));
+        };
+
+        const isRearCamera = (camera) => {
+          const label = normalizeLabel(camera.label);
+          return camera?.facingMode === "environment" || REAR_CAMERA_HINTS.some((hint) => label.includes(hint));
+        };
+
+        const getPreferredCamera = (cameras) => {
+          const nonFrontCameras = cameras.filter((camera) => !isFrontCamera(camera));
+          const wideCamera = nonFrontCameras.find((camera) => isWideCamera(camera));
+          if (wideCamera) {
+            return wideCamera;
+          }
+
+          const rearCamera = nonFrontCameras.find((camera) => isRearCamera(camera));
+          if (rearCamera) {
+            return rearCamera;
+          }
+
+          return nonFrontCameras[0] || cameras[0] || null;
+        };
+
+        // Strategy for this customer case:
+        // 1. Ask for a rear-facing camera in a language-agnostic way.
+        // 2. After permission, use English/French labels as a best-effort way to prefer wide/ultra-wide.
+        // 3. Keep manual override and persist the last user-selected camera.
+        cameraEnhancer.ifSkipCameraInspection = false;
+        cameraEnhancer.ifSaveLastUsedCamera = true;
+        await cameraEnhancer.updateVideoSettings({
+          video: {
+            facingMode: { ideal: "environment" },
+          },
+        });
+
+        const updateStatus = (camera) => {
+          const label = camera?.label || "Unknown camera";
+          const facingMode = camera?.facingMode || "unknown";
+          status.textContent = `Active camera: ${label} (${facingMode})`;
+        };
+
+        const refreshCameraOptions = async () => {
+          const cameras = await cameraEnhancer.getAllCameras();
+          const currentCamera = await cameraEnhancer.getSelectedCamera();
+
+          console.log("Available cameras:", cameras);
+          console.log("Selected camera:", currentCamera);
+          console.log("Preferred camera candidate:", getPreferredCamera(cameras));
+
+          cameraSelect.innerHTML = "";
+
+          for (const camera of cameras) {
+            const option = document.createElement("option");
+            option.value = camera.deviceId;
+            option.textContent = camera.label || `${camera.facingMode || "unknown"} camera`;
+            option.selected = camera.deviceId === currentCamera?.deviceId;
+            cameraSelect.append(option);
+          }
+
+          updateStatus(currentCamera);
+        };
+
+        await cameraEnhancer.open();
+
+        const cameras = await cameraEnhancer.getAllCameras();
+        const currentCamera = await cameraEnhancer.getSelectedCamera();
+        const preferredCamera = getPreferredCamera(cameras);
+
+        if (preferredCamera && preferredCamera.deviceId && preferredCamera.deviceId !== currentCamera?.deviceId) {
+          console.log("Switching to preferred camera (wide first, rear fallback):", preferredCamera);
+          await cameraEnhancer.selectCamera(preferredCamera.deviceId);
+        }
+
+        await refreshCameraOptions();
+
+        cameraSelect.addEventListener("change", async () => {
+          if (!cameraSelect.value) {
+            return;
+          }
+
+          await cameraEnhancer.selectCamera(cameraSelect.value);
+          await refreshCameraOptions();
+        });
+
+        cvRouter.addResultReceiver({
+          onCapturedResultReceived: (result) => {
+            for (const item of result.items || []) {
+              if (item.type !== Dynamsoft.Core.EnumCapturedResultItemType.CRIT_BARCODE) {
+                continue;
+              }
+
+              console.log("Captured barcode:", item.text);
+            }
+          },
+        });
+
+        await cvRouter.startCapturing("ReadBarcodes_SpeedFirst");
+      })();
+    </script>
+  </body>
+</html>
