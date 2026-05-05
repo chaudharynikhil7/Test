@@ -3,216 +3,167 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DBR iOS Camera Test</title>
+    <title>Dynamsoft Barcode Scanner Sample - Hello World (Decode via Camera)</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.4000/dist/dbr.bundle.js"></script>
-
-    <style>
-      body {
-        font-family: sans-serif;
-        margin: 16px;
-      }
-
-      #controls {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 12px;
-        flex-wrap: wrap;
-      }
-
-      #cameraSelect {
-        min-width: min(280px, 100%);
-        max-width: 100%;
-      }
-
-      #status {
-        color: #444;
-        font-size: 14px;
-      }
-
-      #cameraView {
-        width: 100%;
-        max-width: 640px;
-        aspect-ratio: 4 / 3;
-        min-height: 320px;
-        border: 1px solid #ccc;
-      }
-
-      @media (max-width: 640px) {
-        body {
-          margin: 12px;
-        }
-
-        #controls {
-          align-items: stretch;
-        }
-
-        #controls label,
-        #cameraSelect,
-        #status {
-          width: 100%;
-        }
-      }
-    </style>
+    <!-- Include Dynamsoft Barcode Reader Bundle via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.4.2001/dist/dbr.bundle.js"></script>
+    <!-- If the network is unstable or you prefer to self-host the SDK, uncomment the line below to load it locally -->
+    <!-- <script src="../dist/dbr.bundle.js"></script> -->
   </head>
+
   <body>
-    <h3>Dynamsoft Barcode Reader – iOS Camera Test</h3>
-    <div id="controls">
-      <label for="cameraSelect">Camera:</label>
-      <select id="cameraSelect"></select>
-      <div id="status">Opening camera...</div>
+    <h1 class="barcode-scanner-title">Hello World (Scan Barcode via Camera)</h1>
+    <!-- This div will host the barcode scanner's camera view -->
+    <div class="barcode-scanner-view" style="width: 100%; height: 60vh"></div>
+    <div
+      id="camera-debug"
+      style="
+        width: 100%;
+        padding: 8px 10px;
+        background: #f4f4f4;
+        font-size: 13px;
+        font-family: monospace;
+        border-top: 1px solid #ddd;
+        overflow: auto;
+        max-height: 15vh;
+      "
+    >
+      <strong>Camera debug:</strong> waiting...
     </div>
-    <div id="cameraView"></div>
-
+    <div class="result-view" style="width: 100%; height: calc(25vh - 80px); padding: 10px; overflow: auto"></div>
     <script>
-      (async () => {
-        Dynamsoft.License.LicenseManager.initLicense(
-          "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
-        );
-        Dynamsoft.Core.CoreModule.loadWasm();
+      const resultView = document.querySelector(".result-view");
 
-        const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
-        const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
-        document.getElementById("cameraView").append(cameraView.getUIElement());
+      const debugEl = document.getElementById("camera-debug");
+      const debugLog = (msg) => {
+        const line = document.createElement("div");
+        line.textContent = msg;
+        debugEl.append(line);
+      };
 
-        const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
-        cvRouter.setInput(cameraEnhancer);
-
-        const cameraSelect = document.getElementById("cameraSelect");
-        const status = document.getElementById("status");
-
-        const normalizeLabel = (label) =>
-          (label || "")
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-
-        const WIDE_CAMERA_HINTS = [
-          "wide",
-          "ultra wide",
-          "back wide",
-          "rear wide",
-          "grand angle",
-          "ultra grand angle",
-          "camera arriere grand angle",
-          "camera arriere ultra grand angle",
-        ];
-
-        const REAR_CAMERA_HINTS = ["back", "rear", "world", "arriere", "arriere-plan"];
-
-        const isFrontCamera = (camera) => {
-          const label = normalizeLabel(camera.label);
-          return (
-            camera?.facingMode === "user" ||
-            label.includes("front") ||
-            label.includes("user") ||
-            label.includes("avant")
-          );
-        };
-
-        const isWideCamera = (camera) => {
-          const label = normalizeLabel(camera.label);
-          return WIDE_CAMERA_HINTS.some((hint) => label.includes(hint));
-        };
-
-        const isRearCamera = (camera) => {
-          const label = normalizeLabel(camera.label);
-          return camera?.facingMode === "environment" || REAR_CAMERA_HINTS.some((hint) => label.includes(hint));
-        };
-
-        const getPreferredCamera = (cameras) => {
-          const nonFrontCameras = cameras.filter((camera) => !isFrontCamera(camera));
-          const wideCamera = nonFrontCameras.find((camera) => isWideCamera(camera));
-          if (wideCamera) {
-            return wideCamera;
-          }
-
-          const rearCamera = nonFrontCameras.find((camera) => isRearCamera(camera));
-          if (rearCamera) {
-            return rearCamera;
-          }
-
-          return nonFrontCameras[0] || cameras[0] || null;
-        };
-
-        // Strategy for this customer case:
-        // 1. Ask for a rear-facing camera in a language-agnostic way.
-        // 2. After permission, use English/French labels as a best-effort way to prefer wide/ultra-wide.
-        // 3. Keep manual override and persist the last user-selected camera.
-        cameraEnhancer.ifSkipCameraInspection = false;
-        cameraEnhancer.ifSaveLastUsedCamera = true;
-        await cameraEnhancer.updateVideoSettings({
-          video: {
-            facingMode: { ideal: "environment" },
-          },
-        });
-
-        const updateStatus = (camera) => {
-          const label = camera?.label || "Unknown camera";
-          const facingMode = camera?.facingMode || "unknown";
-          status.textContent = `Active camera: ${label} (${facingMode})`;
-        };
-
-        const refreshCameraOptions = async () => {
-          const cameras = await cameraEnhancer.getAllCameras();
-          const currentCamera = await cameraEnhancer.getSelectedCamera();
-
-          console.log("Available cameras:", cameras);
-          console.log("Selected camera:", currentCamera);
-          console.log("Preferred camera candidate:", getPreferredCamera(cameras));
-
-          cameraSelect.innerHTML = "";
-
-          for (const camera of cameras) {
-            const option = document.createElement("option");
-            option.value = camera.deviceId;
-            option.textContent = camera.label || `${camera.facingMode || "unknown"} camera`;
-            option.selected = camera.deviceId === currentCamera?.deviceId;
-            cameraSelect.append(option);
-          }
-
-          updateStatus(currentCamera);
-        };
-
-        await cameraEnhancer.open();
+      async function autoSelectPreferredCamera(cameraEnhancer) {
+        // await cameraEnhancer.open();
+        const access = await Dynamsoft.DCE.CameraEnhancer.testCameraAccess();
+        debugEl.innerHTML = `<strong>Camera debug:</strong>`;
+        debugLog(`testCameraAccess: ${access.ok ? "OK" : "DENIED – " + access.message}`);
+        if (!access.ok) {
+          throw new Error(access.message || "Camera access denied");
+        }
 
         const cameras = await cameraEnhancer.getAllCameras();
-        const currentCamera = await cameraEnhancer.getSelectedCamera();
-        const preferredCamera = getPreferredCamera(cameras);
+        debugLog(`Available cameras (${cameras.length}):`);
+        cameras.forEach((c, i) =>
+          debugLog(
+            `  [${i}] ${c.label || "(no label)"} | facingMode: ${c.facingMode || "unknown"} | id: ${c.deviceId?.slice(0, 8)}...`,
+          ),
+        );
+        const current = await cameraEnhancer.getSelectedCamera();
+        debugLog(`Current: ${current?.label || "(none)"}`);
 
-        if (preferredCamera && preferredCamera.deviceId && preferredCamera.deviceId !== currentCamera?.deviceId) {
-          console.log("Switching to preferred camera (wide first, rear fallback):", preferredCamera);
-          await cameraEnhancer.selectCamera(preferredCamera.deviceId);
+        const norm = (s = "") =>
+          s
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+
+        const has = (camera, words) => {
+          const l = norm(camera.label);
+          return words.some((w) => l.includes(w));
+        };
+
+        const pick = (words) => cameras.find((c) => has(c, words));
+
+        const target =
+          pick(["ultra wide", "ultra grand angle"]) ||
+          pick(["dual wide", "double grand angle"]) ||
+          pick([" wide", "grand angle"]) ||
+          cameras.find((c) => c.facingMode === "environment" || has(c, ["rear", "back", "arriere"])) ||
+          cameras[0];
+
+        debugLog(`Target: ${target?.label || "(none)"}`);
+
+        if (target?.deviceId && target.deviceId !== current?.deviceId) {
+          debugLog(`Switching to: ${target.label}`);
+          await cameraEnhancer.selectCamera(target.deviceId);
+        } else {
+          debugLog("No switch needed – already on preferred camera.");
         }
+      }
 
-        await refreshCameraOptions();
+      Dynamsoft.License.LicenseManager.initLicense(
+        "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
+      );
 
-        cameraSelect.addEventListener("change", async () => {
-          if (!cameraSelect.value) {
-            return;
+      (async () => {
+        const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
+        const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+        const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+
+        await autoSelectPreferredCamera(cameraEnhancer);
+
+        cvRouter.setInput(cameraEnhancer);
+
+        const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
+        resultReceiver.onDecodedBarcodesReceived = (result) => {
+          console.log(result);
+          resultView.innerHTML = "";
+          for (let item of result.barcodeResultItems) {
+            const div = document.createElement("div");
+            div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
+            resultView.append(div);
           }
+        };
+        await cvRouter.addResultReceiver(resultReceiver);
 
-          await cameraEnhancer.selectCamera(cameraSelect.value);
-          await refreshCameraOptions();
-        });
+        // Filter out unchecked and duplicate results.
+        const filter = new Dynamsoft.Utility.MultiFrameResultCrossFilter();
+        // Filter out unchecked barcodes.
+        filter.enableResultCrossVerification("barcode", true);
+        // Filter out duplicate barcodes within 3 seconds.
+        filter.enableResultDeduplication("barcode", true);
+        await cvRouter.addResultFilter(filter);
 
-        cvRouter.addResultReceiver({
-          onCapturedResultReceived: (result) => {
-            for (const item of result.items || []) {
-              if (item.type !== Dynamsoft.Core.EnumCapturedResultItemType.CRIT_BARCODE) {
-                continue;
-              }
+        const uiElement = cameraView.getUIElement();
+        document.querySelector(".barcode-scanner-view").append(uiElement);
 
-              console.log("Captured barcode:", item.text);
-            }
-          },
-        });
-
+        await cameraEnhancer.open();
         await cvRouter.startCapturing("ReadBarcodes_SpeedFirst");
       })();
     </script>
+
+    <!--
+    Please note that putting CSS at the end is not a best practice. 
+    We do this so that you can focus on reading the JS logic.
+  -->
+    <style>
+      /* Reset default margin and padding, and apply border-box sizing */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Ensure html and body take full viewport size */
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Style for the scanner title */
+      .barcode-scanner-title {
+        height: 80px;
+        text-align: center;
+        font-size: 20px;
+        padding: 20px 0;
+      }
+
+      /* Container where the barcode scanner will be rendered */
+      .barcode-scanner-view {
+        width: 100%;
+        height: calc(100% - 80px);
+        /* Fill remaining space below the title */
+      }
+    </style>
   </body>
 </html>
