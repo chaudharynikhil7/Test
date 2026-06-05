@@ -257,11 +257,16 @@
           .replace(/'/g, "&#39;");
       }
 
-      async function parseBytes(bytes, source) {
+      async function parseTextDirect(rawText, source) {
+        if (!rawText || !rawText.trim()) {
+          setStatus("Please provide text first.", true);
+          return;
+        }
+
         try {
           setStatus("Parsing with DCP... source: " + source);
           const parser = await parserPromise;
-          const parsed = await parser.parse(bytes);
+          const parsed = await parser.parse(rawText);
           const parsedJsonObj = parsed && parsed.jsonString ? JSON.parse(parsed.jsonString) : {};
           const fields = extractFields(parsedJsonObj);
 
@@ -275,16 +280,6 @@
           setStatus("Parse failed: " + (error && error.message ? error.message : String(error)), true);
           renderResult([], { error: error && error.message ? error.message : String(error) });
         }
-      }
-
-      async function parseTextAsIs(rawText) {
-        if (!rawText || !rawText.trim()) {
-          setStatus("Please provide text first.", true);
-          return;
-        }
-
-        const bytes = new TextEncoder().encode(rawText);
-        await parseBytes(bytes, "text-as-is");
       }
 
       async function scanWithCameraOrImage() {
@@ -308,14 +303,7 @@
           }
 
           inputText.value = first.text || "";
-
-          if (first.bytes && first.bytes.length) {
-            await parseBytes(first.bytes, "scanner-bytes");
-            return;
-          }
-
-          const fallbackBytes = new TextEncoder().encode(first.text || "");
-          await parseBytes(fallbackBytes, "scanner-text-fallback");
+          await parseTextDirect(first.text || "", "scanner-text");
         } catch (error) {
           setStatus("Camera/image scan failed: " + (error && error.message ? error.message : String(error)), true);
         }
@@ -337,7 +325,7 @@
       }
 
       parseBtn.addEventListener("click", async () => {
-        await parseTextAsIs(inputText.value);
+        await parseTextDirect(inputText.value, "text-as-is-string");
       });
 
       scanBtn.addEventListener("click", async () => {
