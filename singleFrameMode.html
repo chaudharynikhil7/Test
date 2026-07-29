@@ -5,25 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Scan barcodes in single-frame mode via camera or uploaded images with Dynamsoft Barcode Reader."
+      content="Single-frame barcode scanning with CameraView highlights using Dynamsoft Barcode Reader."
     />
-    <meta name="keywords" content="barcode, camera, single frame mode, scanning" />
+    <meta name="keywords" content="barcode, single frame mode, camera view, highlight" />
     <link rel="canonical" href="https://demo.dynamsoft.com/Samples/DBR/JS/basics/hello-world.html" />
-    <title>Dynamsoft Barcode Scanner Sample - Hello World (Single Frame Mode)</title>
+    <title>Dynamsoft Barcode Scanner Sample - Single Frame Mode with Highlight</title>
 
-    <!-- Include Dynamsoft Barcode Reader Bundle via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.4.3000/dist/dbr.bundle.js"></script>
-    <!-- If the network is unstable or you prefer to self-host the SDK, uncomment the line below to load it locally -->
-    <!-- <script src="../../dist/dbr.bundle.js"></script> -->
   </head>
 
   <body>
-    <h1 class="barcode-scanner-title">Hello World (Scan Barcode in Single Frame Mode)</h1>
-    <!-- This div will host the barcode scanner's camera view -->
+    <h1 class="barcode-scanner-title">Hello World (snap image and identify barcode)</h1>
     <div class="barcode-scanner-view" style="width: 100%; height: 70vh"></div>
     <div class="result-view" style="width: 100%; height: calc(30vh - 80px); padding: 10px; overflow: auto"></div>
+
     <script>
-      // Detect file:// protocol and show a helpful tip
       if (location.protocol === "file:") {
         const tip = document.createElement("div");
         tip.style.cssText =
@@ -36,51 +32,78 @@
 
       const resultView = document.querySelector(".result-view");
 
-      /** LICENSE ALERT - README
-       * To use the library, you need to first specify a license key.
-       *
-       * You can visit https://www.dynamsoft.com/customer/license/trialLicense?utm_source=samples&product=dbr&package=js to get your own trial license good for 30 days.
-       * Note that if you downloaded this sample from Dynamsoft while logged in, the above license key may already be your own 30-day trial license.
-       * For more information, see https://www.dynamsoft.com/barcode-reader/docs/web/programming/javascript/user-guide/index.html#license&utm_source=samples or contact support@dynamsoft.com.
-       * LICENSE ALERT - THE END
-       */
+      function setDecodeStatus(message, color = "#333") {
+        const status = document.createElement("div");
+        status.style.cssText = `font-weight:600;margin-bottom:8px;color:${color};`;
+        status.innerText = message;
+        resultView.innerHTML = "";
+        resultView.append(status);
+      }
+
+      function renderBarcodeItems(barcodeItems) {
+        for (const item of barcodeItems) {
+          const div = document.createElement("div");
+          div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
+          resultView.append(div);
+        }
+      }
+
       Dynamsoft.License.LicenseManager.initLicense(
         "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMDE4NDUwOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOjEzNDQxNjc1MDB9",
       );
+
       (async () => {
         const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
         const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
         const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
 
         cvRouter.setInput(cameraEnhancer);
-        // Enable single-frame mode so users can capture a high-definition frame
-        // from camera or pick a local image for decoding.
         cameraEnhancer.singleFrameMode = "camera";
 
-        function renderBarcodeItems(barcodeItems) {
-          resultView.innerHTML = "";
-          if (!barcodeItems || !barcodeItems.length) {
-            resultView.innerText = "No barcode found in the captured frame.";
-            return;
-          }
-          for (let item of barcodeItems) {
-            const div = document.createElement("div");
-            div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
-            resultView.append(div);
+        // Create a dedicated layer for highlight overlays.
+        const highlightLayer = cameraView.createDrawingLayer();
+        const highlightStyleId = Dynamsoft.DCE.DrawingStyleManager.createDrawingStyle({
+          fillStyle: "rgba(0, 255, 102, 0.15)",
+          strokeStyle: "rgba(0, 255, 102, 1)",
+          lineWidth: 3,
+        });
+        highlightLayer.setDefaultStyle(highlightStyleId);
+
+        function drawBarcodeHighlights(barcodeItems) {
+          highlightLayer.clearDrawingItems();
+          if (!barcodeItems.length) return;
+
+          const quadItems = barcodeItems
+            .filter((item) => item.location)
+            .map((item) => new Dynamsoft.DCE.QuadDrawingItem(item.location));
+
+          if (quadItems.length) {
+            highlightLayer.addDrawingItems(quadItems);
           }
         }
 
         cameraEnhancer.on("singleFrameAcquired", async (frameData) => {
           try {
-            // In single-frame flow, decode the captured frame directly.
+            setDecodeStatus("Decoding captured frame...", "#6c757d");
+
             const capturedResult = await cvRouter.capture(frameData, "ReadBarcodes_ReadRateFirst");
             const barcodeItems = (capturedResult.items || []).filter(
               (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_BARCODE,
             );
+
+            drawBarcodeHighlights(barcodeItems);
+
+            if (!barcodeItems.length) {
+              setDecodeStatus("No barcode decoded in this frame.", "#b26a00");
+              return;
+            }
+
+            setDecodeStatus(`Decoded ${barcodeItems.length} barcode(s).`, "#1f7a1f");
             renderBarcodeItems(barcodeItems);
           } catch (err) {
+            highlightLayer.clearDrawingItems();
             console.error("Capture failed:", err);
-            resultView.innerText = `Capture failed: ${err?.message || err}`;
+            setDecodeStatus(`Capture failed: ${err?.message || err}`, "#b00020");
           }
         });
 
@@ -91,26 +114,19 @@
       })();
     </script>
 
-    <!--
-    Please note that putting CSS at the end is not a best practice. 
-    We do this so that you can focus on reading the JS logic.
-  -->
     <style>
-      /* Reset default margin and padding, and apply border-box sizing */
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
       }
 
-      /* Ensure html and body take full viewport size */
       html,
       body {
         width: 100%;
         height: 100%;
       }
 
-      /* Style for the scanner title */
       .barcode-scanner-title {
         height: 80px;
         text-align: center;
@@ -118,11 +134,9 @@
         padding: 20px 0;
       }
 
-      /* Container where the barcode scanner will be rendered */
       .barcode-scanner-view {
         width: 100%;
         height: calc(100% - 80px);
-        /* Fill remaining space below the title */
       }
     </style>
   </body>
