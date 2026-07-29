@@ -1,0 +1,476 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>DWT Custom Viewer - APAT Workflow</title>
+    <script>
+      window.Dynamsoft = window.Dynamsoft || { DWT: {} };
+      Dynamsoft.DWT.ResourcesPath = "https://unpkg.com/dwt@latest/dist";
+      Dynamsoft.DWT.ProductKey =
+        "t0198EQYAAKoo3CLRVaqS3C8rSfvpBu4KrayaLUHxIe9TdWOZYbx01ylFwtO9W9TXEAA8ZQxKJjSFuYJCZPPj5mOq2LVeKu2fOycPcEp/p1B/JwY4+ZWTaI6vNp22ivPCBPbAEgE5rsMBoATSWk7Aqn+jd4YM4BYgDUBaa0ALqO7CFZ/L4oXPa02fHWjNyQOc0t9ZBqSPEwOc/MrpAjJZUrvb7ZYCgvLmZAC3AKkC+P/ILgGhM8AtQKrAekoxZwBZrQQz2S/jrj9W";
+      Dynamsoft.DWT.Containers = [
+        { WebTwainId: "", ContainerId: "dwtcontrolContainer", Width: "100%", Height: "100%" },
+      ];
+    </script>
+    <script src="https://unpkg.com/dwt@latest/dist/dynamsoft.webtwain.min.js"></script>
+    <link rel="icon" href="data:," />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 16px;
+        font-family: "Open Sans", Arial, sans-serif;
+        color: #2f3337;
+        background: #fbfcfe;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .toolbar label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #4b5157;
+      }
+
+      .toolbar button,
+      .toolbar select,
+      .toolbar input {
+        height: 30px;
+        border: 1px solid #c5cbd3;
+        border-radius: 4px;
+        background: #fff;
+        font-size: 13px;
+        padding: 0 10px;
+      }
+
+      .toolbar button {
+        cursor: pointer;
+        background: #f8fafc;
+      }
+
+      .toolbar button:hover {
+        background: #eef4ff;
+      }
+
+      .toolbar button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      #source {
+        min-width: 260px;
+      }
+
+      #dwtcontrolContainer {
+        width: min(96vw, 1700px);
+        height: calc(100vh - 250px);
+        min-height: 700px;
+        border: 1px solid #d7dbe0;
+        background: #fff;
+      }
+
+      @media (max-width: 900px) {
+        #dwtcontrolContainer {
+          width: 96vw;
+          height: calc(100vh - 320px);
+          min-height: 520px;
+        }
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #586069;
+      }
+
+      .status strong {
+        color: #263342;
+      }
+
+      .help {
+        margin-top: 14px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #4b5157;
+      }
+
+      .help a {
+        color: #0b63ce;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <label for="screenMode">Screen:</label>
+      <select id="screenMode" onchange="onScreenModeChanged()">
+        <option value="edit">Scan and Index (Editable)</option>
+        <option value="readonly">Document Library (Read-only)</option>
+      </select>
+
+      <label for="source">Scanner:</label>
+      <select id="source"></select>
+      <button id="btnScan" onclick="acquireImage()">Scan</button>
+      <button id="btnLoad" onclick="loadImage()">Load</button>
+    </div>
+
+    <div class="toolbar">
+      <button onclick="goFirst()">|&lt;</button>
+      <button onclick="goPrev()">&lt;</button>
+      <input id="txtCurrent" size="3" value="0" readonly />
+      <span>/</span>
+      <input id="txtTotal" size="3" value="0" readonly />
+      <button onclick="goNext()">&gt;</button>
+      <button onclick="goLast()">&gt;|</button>
+
+      <button onclick="zoomOut()">Zoom -</button>
+      <button onclick="zoomIn()">Zoom +</button>
+      <button onclick="fitWindow()">Fit</button>
+      <input id="txtZoom" size="5" value="100%" readonly />
+
+      <button id="btnRotateLeft" onclick="rotateLeft()">Rotate Left</button>
+      <button id="btnRotateRight" onclick="rotateRight()">Rotate Right</button>
+      <button id="btnPrint" onclick="printPages()">Print</button>
+    </div>
+
+    <div class="toolbar">
+      <button id="btnMoveUp" onclick="movePageUp()">Move Up</button>
+      <button id="btnMoveDown" onclick="movePageDown()">Move Down</button>
+      <button id="btnDelete" onclick="deleteCurrentPage()">Delete Page</button>
+      <button id="btnDeleteAll" onclick="deleteAllPages()">Delete All Pages</button>
+      <span style="font-size: 12px; color: #6b7280">Tip: drag pages in the thumbnail panel to reorder as well.</span>
+    </div>
+
+    <div id="dwtcontrolContainer"></div>
+
+    <div class="status" id="statusText"><strong>Mode:</strong> Scan and Index (Editable)</div>
+
+    <div class="help">
+      This sample demonstrates replacing DDV features with DWT for APAT Web workflows. Viewer and thumbnail behavior
+      follow DWT viewer configuration guidance:
+      <a target="_blank" href="https://www.dynamsoft.com/web-twain/docs/general-usage/viewer-configuration.html"
+        >Configuring the Viewer</a
+      >.
+    </div>
+
+    <script type="text/javascript">
+      var DWTObject = null;
+      var thumbnailViewer = null;
+      var deviceList = [];
+      var dwtInitialized = false;
+      var createAttempted = false;
+
+      Dynamsoft.DWT.RegisterEvent("OnWebTwainReady", function () {
+        initDWT();
+      });
+
+      document.addEventListener("DOMContentLoaded", function () {
+        setTimeout(initDWT, 0);
+        setTimeout(initDWT, 800);
+      });
+
+      function initDWT() {
+        if (dwtInitialized || !window.Dynamsoft || !Dynamsoft.DWT) {
+          return;
+        }
+
+        var existing = Dynamsoft.DWT.GetWebTwain("dwtcontrolContainer");
+        if (existing) {
+          DWTObject = existing;
+          setupViewerAndEvents();
+          return;
+        }
+
+        if (createAttempted || typeof Dynamsoft.DWT.CreateDWTObjectEx !== "function") {
+          return;
+        }
+
+        createAttempted = true;
+        Dynamsoft.DWT.CreateDWTObjectEx(
+          {
+            WebTwainId: "dwtcontrolContainer",
+          },
+          function (createdDWTObject) {
+            DWTObject = createdDWTObject;
+            if (DWTObject && DWTObject.Viewer && typeof DWTObject.Viewer.bind === "function") {
+              DWTObject.Viewer.bind(document.getElementById("dwtcontrolContainer"));
+            }
+            setupViewerAndEvents();
+          },
+          function (err) {
+            var msg = (err && (err.message || err.errorString)) || "Unable to initialize DWT object.";
+            console.error("DWT initialization failed:", err);
+            showInitError(msg);
+          },
+        );
+      }
+
+      function setupViewerAndEvents() {
+        if (!DWTObject || dwtInitialized) {
+          return;
+        }
+        dwtInitialized = true;
+
+        DWTObject.Viewer.autoChangeIndex = true;
+        DWTObject.Viewer.setViewMode(-1, -1);
+        DWTObject.Viewer.show();
+        resizeViewerToContainer();
+
+        thumbnailViewer = DWTObject.Viewer.createThumbnailViewer();
+        if (thumbnailViewer) {
+          thumbnailViewer.showPageNumber = true;
+          thumbnailViewer.selectedPageBorder = "solid 2px #1677ff";
+          thumbnailViewer.hoverPageBorder = "solid 2px #8ab8ff";
+          thumbnailViewer.placeholderBackground = "#eef2f6";
+          thumbnailViewer.show();
+          thumbnailViewer.on("click", updateStatus);
+          thumbnailViewer.on("dragdone", function () {
+            updateStatus();
+          });
+        }
+
+        DWTObject.GetDevicesAsync()
+          .then(function (devices) {
+            deviceList = devices || [];
+            var sourceSelect = document.getElementById("source");
+            for (var i = 0; i < deviceList.length; i++) {
+              sourceSelect.options.add(new Option(deviceList[i].displayName, i));
+            }
+          })
+          .catch(function (exp) {
+            alert(exp.message);
+          });
+
+        DWTObject.RegisterEvent("OnPostTransfer", updateStatus);
+        DWTObject.RegisterEvent("OnPostLoad", updateStatus);
+        DWTObject.RegisterEvent("OnBitmapChanged", updateStatus);
+        DWTObject.RegisterEvent("OnIndexChangeDragDropDone", updateStatus);
+        DWTObject.Viewer.on("topPageChanged", updateStatus);
+        DWTObject.Viewer.on("click", updateStatus);
+        window.addEventListener("resize", resizeViewerToContainer);
+
+        onScreenModeChanged();
+        updateStatus();
+      }
+
+      function showInitError(message) {
+        var status = document.getElementById("statusText");
+        if (status) {
+          status.innerHTML = "<strong>Init Error:</strong> " + message;
+        }
+      }
+
+      function resizeViewerToContainer() {
+        if (!DWTObject || !DWTObject.Viewer) {
+          return;
+        }
+
+        var container = document.getElementById("dwtcontrolContainer");
+        if (!container) {
+          return;
+        }
+
+        DWTObject.Viewer.width = container.clientWidth;
+        DWTObject.Viewer.height = container.clientHeight;
+      }
+
+      function hasPages() {
+        return DWTObject && DWTObject.HowManyImagesInBuffer > 0;
+      }
+
+      function currentIndex() {
+        return DWTObject ? DWTObject.CurrentImageIndexInBuffer : -1;
+      }
+
+      function onScreenModeChanged() {
+        var isReadOnly = document.getElementById("screenMode").value === "readonly";
+
+        document.getElementById("btnScan").disabled = isReadOnly;
+        document.getElementById("btnRotateLeft").disabled = isReadOnly;
+        document.getElementById("btnRotateRight").disabled = isReadOnly;
+        document.getElementById("btnMoveUp").disabled = isReadOnly;
+        document.getElementById("btnMoveDown").disabled = isReadOnly;
+        document.getElementById("btnDelete").disabled = isReadOnly;
+        document.getElementById("btnDeleteAll").disabled = isReadOnly;
+        document.getElementById("source").disabled = isReadOnly;
+
+        document.getElementById("statusText").innerHTML = isReadOnly
+          ? "<strong>Mode:</strong> Document Library (Read-only). Navigation, zoom, thumbnail browsing, and print are enabled."
+          : "<strong>Mode:</strong> Scan and Index (Editable). Scan, rotate, reorder, delete, and print are enabled.";
+      }
+
+      function acquireImage() {
+        if (!DWTObject) {
+          return;
+        }
+
+        var sourceSelect = document.getElementById("source");
+        if (!sourceSelect || sourceSelect.selectedIndex < 0 || deviceList.length === 0) {
+          alert("No scanner source is available.");
+          return;
+        }
+
+        DWTObject.SelectDeviceAsync(deviceList[sourceSelect.selectedIndex])
+          .then(function () {
+            return DWTObject.AcquireImageAsync({
+              IfShowUI: true,
+              IfCloseSourceAfterAcquire: true,
+            });
+          })
+          .then(function () {
+            updateStatus();
+          })
+          .catch(function (exp) {
+            alert(exp.message);
+          });
+      }
+
+      function loadImage() {
+        if (!DWTObject) {
+          return;
+        }
+        DWTObject.IfShowFileDialog = true;
+        DWTObject.LoadImageEx(
+          "",
+          Dynamsoft.DWT.EnumDWT_ImageType.IT_ALL,
+          function () {
+            updateStatus();
+          },
+          function (errorCode, errorString) {
+            alert(errorString || "Load failed: " + errorCode);
+          },
+        );
+      }
+
+      function goFirst() {
+        if (!hasPages()) return;
+        DWTObject.Viewer.first();
+        updateStatus();
+      }
+
+      function goPrev() {
+        if (!hasPages()) return;
+        DWTObject.Viewer.previous();
+        updateStatus();
+      }
+
+      function goNext() {
+        if (!hasPages()) return;
+        DWTObject.Viewer.next();
+        updateStatus();
+      }
+
+      function goLast() {
+        if (!hasPages()) return;
+        DWTObject.Viewer.last();
+        updateStatus();
+      }
+
+      function zoomIn() {
+        if (!hasPages()) return;
+        var zoom = Math.round(DWTObject.Viewer.zoom * 100);
+        if (zoom >= 6500) return;
+        DWTObject.Viewer.zoom = (zoom + 10) / 100;
+        updateStatus();
+      }
+
+      function zoomOut() {
+        if (!hasPages()) return;
+        var zoom = Math.round(DWTObject.Viewer.zoom * 100);
+        if (zoom <= 5) return;
+        DWTObject.Viewer.zoom = (zoom - 10) / 100;
+        updateStatus();
+      }
+
+      function fitWindow() {
+        if (!hasPages()) return;
+        DWTObject.Viewer.fitWindow();
+        updateStatus();
+      }
+
+      function rotateLeft() {
+        if (!hasPages()) return;
+        DWTObject.RotateLeft(currentIndex());
+        updateStatus();
+      }
+
+      function rotateRight() {
+        if (!hasPages()) return;
+        DWTObject.RotateRight(currentIndex());
+        updateStatus();
+      }
+
+      function movePageUp() {
+        if (!hasPages()) return;
+        var index = currentIndex();
+        if (index <= 0) return;
+        DWTObject.MoveImage(index, index - 1);
+        DWTObject.CurrentImageIndexInBuffer = index - 1;
+        updateStatus();
+      }
+
+      function movePageDown() {
+        if (!hasPages()) return;
+        var index = currentIndex();
+        if (index < 0 || index >= DWTObject.HowManyImagesInBuffer - 1) return;
+        DWTObject.MoveImage(index, index + 1);
+        DWTObject.CurrentImageIndexInBuffer = index + 1;
+        updateStatus();
+      }
+
+      function deleteCurrentPage() {
+        if (!hasPages()) return;
+        DWTObject.RemoveImage(currentIndex());
+        updateStatus();
+      }
+
+      function deleteAllPages() {
+        if (!hasPages()) return;
+        DWTObject.RemoveAllImages();
+        updateStatus();
+      }
+
+      function printPages() {
+        if (!hasPages()) return;
+
+        // Prefer PrintEx (modern API); fallback to Print for older runtime behavior.
+        if (typeof DWTObject.PrintEx === "function") {
+          var indices = [];
+          for (var i = 0; i < DWTObject.HowManyImagesInBuffer; i++) {
+            indices.push(i);
+          }
+          DWTObject.PrintEx(indices);
+          return;
+        }
+
+        DWTObject.Print();
+      }
+
+      function updateStatus() {
+        if (!DWTObject) {
+          return;
+        }
+
+        var total = DWTObject.HowManyImagesInBuffer;
+        var current = total > 0 ? DWTObject.CurrentImageIndexInBuffer + 1 : 0;
+        document.getElementById("txtTotal").value = total;
+        document.getElementById("txtCurrent").value = current;
+
+        var zoomText = "100%";
+        if (total > 0) {
+          zoomText = Math.round(DWTObject.Viewer.zoom * 100) + "%";
+        }
+        document.getElementById("txtZoom").value = zoomText;
+      }
+    </script>
+  </body>
+</html>
