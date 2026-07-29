@@ -55,7 +55,7 @@
         cvRouter.setInput(cameraEnhancer);
         // Enable single-frame mode so users can capture a high-definition frame
         // from camera or pick a local image for decoding.
-        cameraEnhancer.singleFrameMode = "image";
+        cameraEnhancer.singleFrameMode = "camera";
 
         const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
         resultReceiver.onDecodedBarcodesReceived = (result) => {
