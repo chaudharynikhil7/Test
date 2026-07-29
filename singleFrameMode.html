@@ -57,31 +57,37 @@
         // from camera or pick a local image for decoding.
         cameraEnhancer.singleFrameMode = "camera";
 
-        const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
-        resultReceiver.onDecodedBarcodesReceived = (result) => {
-          console.log(result);
+        function renderBarcodeItems(barcodeItems) {
           resultView.innerHTML = "";
-          for (let item of result.barcodeResultItems) {
+          if (!barcodeItems || !barcodeItems.length) {
+            resultView.innerText = "No barcode found in the captured frame.";
+            return;
+          }
+          for (let item of barcodeItems) {
             const div = document.createElement("div");
             div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
             resultView.append(div);
           }
-        };
-        await cvRouter.addResultReceiver(resultReceiver);
+        }
 
-        // Filter out unchecked and duplicate results.
-        const filter = new Dynamsoft.Utility.MultiFrameResultCrossFilter();
-        // Filter out unchecked barcodes.
-        filter.enableResultCrossVerification("barcode", true);
-        // Filter out duplicate barcodes within 3 seconds.
-        filter.enableResultDeduplication("barcode", true);
-        await cvRouter.addResultFilter(filter);
+        cameraEnhancer.on("singleFrameAcquired", async (frameData) => {
+          try {
+            // In single-frame flow, decode the captured frame directly.
+            const capturedResult = await cvRouter.capture(frameData, "ReadBarcodes_ReadRateFirst");
+            const barcodeItems = (capturedResult.items || []).filter(
+              (item) => item.type === Dynamsoft.Core.EnumCapturedResultItemType.CRIT_BARCODE,
+            );
+            renderBarcodeItems(barcodeItems);
+          } catch (err) {
+            console.error("Capture failed:", err);
+            resultView.innerText = `Capture failed: ${err?.message || err}`;
+          }
+        });
 
         const uiElement = cameraView.getUIElement();
         document.querySelector(".barcode-scanner-view").append(uiElement);
 
         await cameraEnhancer.open();
-        await cvRouter.startCapturing("ReadBarcodes_SpeedFirst");
       })();
     </script>
 
