@@ -110,44 +110,56 @@
     </style>
   </head>
   <body>
-    <div class="toolbar">
+    <div class="toolbar" role="toolbar" aria-label="Document source controls">
       <label for="screenMode">Screen:</label>
-      <select id="screenMode" onchange="onScreenModeChanged()">
+      <select id="screenMode" onchange="onScreenModeChanged()" aria-label="Screen mode">
         <option value="edit">Scan and Index (Editable)</option>
         <option value="readonly">Document Library (Read-only)</option>
       </select>
 
       <label for="source">Scanner:</label>
-      <select id="source"></select>
-      <button id="btnScan" onclick="acquireImage()">Scan</button>
-      <button id="btnLoad" onclick="loadImage()">Load</button>
+      <select id="source" aria-label="Scanner source"></select>
+      <button id="btnScan" onclick="acquireImage()" aria-label="Scan pages">Scan</button>
+      <button id="btnLoad" onclick="loadImage()" aria-label="Load local file">Load</button>
     </div>
 
-    <div class="toolbar">
-      <button onclick="goFirst()">|&lt;</button>
-      <button onclick="goPrev()">&lt;</button>
-      <input id="txtCurrent" size="3" value="0" readonly />
+    <div class="toolbar" role="toolbar" aria-label="Navigation and zoom controls">
+      <button onclick="goFirst()" aria-label="First page">|&lt;</button>
+      <button onclick="goPrev()" aria-label="Previous page">&lt;</button>
+      <input id="txtCurrent" size="3" value="0" readonly aria-label="Current page" />
       <span>/</span>
-      <input id="txtTotal" size="3" value="0" readonly />
-      <button onclick="goNext()">&gt;</button>
-      <button onclick="goLast()">&gt;|</button>
+      <input id="txtTotal" size="3" value="0" readonly aria-label="Total pages" />
+      <button onclick="goNext()" aria-label="Next page">&gt;</button>
+      <button onclick="goLast()" aria-label="Last page">&gt;|</button>
 
-      <button onclick="zoomOut()">Zoom -</button>
-      <button onclick="zoomIn()">Zoom +</button>
-      <button onclick="fitWindow()">Fit</button>
-      <input id="txtZoom" size="5" value="100%" readonly />
+      <button onclick="zoomOut()" aria-label="Zoom out">Zoom -</button>
+      <button onclick="zoomIn()" aria-label="Zoom in">Zoom +</button>
+      <button onclick="fitWindow()" aria-label="Fit to window">Fit</button>
+      <input id="txtZoom" size="5" value="100%" readonly aria-label="Zoom percentage" />
 
-      <button id="btnRotateLeft" onclick="rotateLeft()">Rotate Left</button>
-      <button id="btnRotateRight" onclick="rotateRight()">Rotate Right</button>
-      <button id="btnPrint" onclick="printPages()">Print</button>
+      <button id="btnRotateLeft" onclick="rotateLeft()" aria-label="Rotate left">Rotate Left</button>
+      <button id="btnRotateRight" onclick="rotateRight()" aria-label="Rotate right">Rotate Right</button>
+      <button id="btnPrint" onclick="printPages()" aria-label="Print pages">Print</button>
     </div>
 
-    <div class="toolbar">
-      <button id="btnMoveUp" onclick="movePageUp()">Move Up</button>
-      <button id="btnMoveDown" onclick="movePageDown()">Move Down</button>
-      <button id="btnDelete" onclick="deleteCurrentPage()">Delete Page</button>
-      <button id="btnDeleteAll" onclick="deleteAllPages()">Delete All Pages</button>
+    <div class="toolbar" role="toolbar" aria-label="Editing controls">
+      <button id="btnMoveUp" onclick="movePageUp()" aria-label="Move page up">Move Up</button>
+      <button id="btnMoveDown" onclick="movePageDown()" aria-label="Move page down">Move Down</button>
+      <button id="btnDelete" onclick="deleteCurrentPage()" aria-label="Delete current page">Delete Page</button>
+      <button id="btnDeleteAll" onclick="deleteAllPages()" aria-label="Delete all pages">Delete All Pages</button>
       <span style="font-size: 12px; color: #6b7280">Tip: drag pages in the thumbnail panel to reorder as well.</span>
+    </div>
+
+    <div class="toolbar" role="toolbar" aria-label="Document save controls">
+      <label for="fileName">File Name:</label>
+      <input id="fileName" type="text" value="apat-document" aria-label="Save file name" />
+      <label for="saveFormat">Format:</label>
+      <select id="saveFormat" aria-label="Save format">
+        <option value="pdf">PDF (Multi-page)</option>
+        <option value="tiff">TIFF (Multi-page)</option>
+      </select>
+      <button id="btnSaveLocal" onclick="saveDocumentLocally()" aria-label="Save document locally">Save Local</button>
+      <span style="font-size: 12px; color: #6b7280">Ctrl/Cmd + S also triggers Save Local.</span>
     </div>
 
     <div id="dwtcontrolContainer"></div>
@@ -176,6 +188,7 @@
       document.addEventListener("DOMContentLoaded", function () {
         setTimeout(initDWT, 0);
         setTimeout(initDWT, 800);
+        document.addEventListener("keydown", handleKeyboardShortcuts);
       });
 
       function initDWT() {
@@ -453,6 +466,62 @@
         }
 
         DWTObject.Print();
+      }
+
+      function getExportFileName(ext) {
+        var rawName = (document.getElementById("fileName").value || "apat-document").trim();
+        var clean = rawName.replace(/[\\/:*?"<>|]+/g, "_");
+        if (!clean) {
+          clean = "apat-document";
+        }
+        if (clean.toLowerCase().endsWith("." + ext)) {
+          return clean;
+        }
+        return clean + "." + ext;
+      }
+
+      function saveDocumentLocally() {
+        if (!hasPages()) {
+          alert("No pages available to save.");
+          return;
+        }
+
+        var format = document.getElementById("saveFormat").value;
+        var onSuccess = function () {
+          document.getElementById("statusText").innerHTML =
+            "<strong>Status:</strong> Document saved locally via system save dialog.";
+        };
+        var onFailure = function (errorCode, errorString) {
+          alert(errorString || "Save failed: " + errorCode);
+        };
+
+        DWTObject.IfShowFileDialog = true;
+
+        if (format === "tiff") {
+          DWTObject.SaveAllAsMultiPageTIFF(getExportFileName("tiff"), onSuccess, onFailure);
+          return;
+        }
+
+        DWTObject.SaveAllAsPDF(getExportFileName("pdf"), onSuccess, onFailure);
+      }
+
+      function handleKeyboardShortcuts(event) {
+        var key = (event.key || "").toLowerCase();
+        var isSave = key === "s" && (event.ctrlKey || event.metaKey);
+        if (isSave) {
+          event.preventDefault();
+          saveDocumentLocally();
+          return;
+        }
+
+        if (key === "arrowleft" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+          goPrev();
+          return;
+        }
+
+        if (key === "arrowright" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+          goNext();
+        }
       }
 
       function updateStatus() {
