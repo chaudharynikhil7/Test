@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Continuously scan and collect multiple unique barcodes via camera with Dynamsoft Barcode Reader." />
+  <meta name="keywords" content="barcode, camera, scanning" />
+  <link rel="canonical" href="https://demo.dynamsoft.com/Samples/DBR/JS/basics/hello-world.html" />
+  <title>Dynamsoft Barcode Scanner Sample - Hello World with Camera Help</title>
+
+  <!-- Include Dynamsoft Barcode Reader Bundle via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.4.3000/dist/dbr.bundle.js"></script>
+</head>
+
+<body>
+  <h1 class="barcode-scanner-title">
+    Hello World (Scan Barcode via Camera)
+  </h1>
+  <!-- This div will host the barcode scanner's camera view -->
+  <div class="barcode-scanner-view" style="width: 100%; height: 70vh; position: relative;"></div>
+  <div class="result-view" style="width: 100%; height: calc(30vh - 80px); padding: 10px; overflow: auto;"></div>
+
+  <script>
+    // Detect file:// protocol and show a helpful tip
+    if (location.protocol === "file:") {
+      const tip = document.createElement("div");
+      tip.style.cssText = "background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 16px;margin:8px;border-radius:6px;font:14px/1.5 sans-serif;text-align:center;";
+      tip.innerHTML = '<strong>Tip:</strong> This page works via <code>file://</code>, but for the best experience, '
+        + 'serve it from a web server (e.g. HTTPS or localhost).';
+      document.body.insertBefore(tip, document.body.firstChild);
+    }
+
+    const resultView = document.querySelector(".result-view");
+
+    // Initialize Dynamsoft license key
+    Dynamsoft.License.LicenseManager.initLicense("DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LU1UQXdNVGcwTlRBNUxYZGxZaTFVY21saGJGQnliMm8iLCJtYWluU2VydmVyVVJMIjoiaHR0cHM6Ly9tZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwib3JnYW5pemF0aW9uSUQiOiIxMDAxODQ1MDkiLCJzdGFuZGJ5U2VydmVyVVJMIjoiaHR0cHM6Ly9zZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwiY2hlY2tDb2RlIjozMDc3NTI2NjF9");
+
+    // Renders custom instructions when camera is opened successfully
+    function showScanningInstructions() {
+      const scannerView = document.querySelector(".barcode-scanner-view");
+
+      // Remove any existing overlay
+      const existingOverlay = scannerView.querySelector(".scanner-instructions-overlay");
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+
+      // Append custom user guidance overlay box
+      const overlay = document.createElement("div");
+      overlay.className = "scanner-instructions-overlay";
+      overlay.style.cssText = "position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 420px; background: rgba(0, 0, 0, 0.75); color: #ffffff; padding: 14px 18px; border-radius: 12px; font-family: sans-serif; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px); z-index: 10001; pointer-events: none;";
+      overlay.innerHTML = `
+        <p style="margin: 0 0 5px 0; font-size: 15px; font-weight: bold; color: #ffcc00; letter-spacing: 0.5px;">⚠️ BACK OF DRIVER'S LICENSE ONLY</p>
+        <p style="margin: 0; font-size: 12px; line-height: 1.4; color: #e2e8f0;">Please flip your ID card over and position the large barcode inside the frame.</p>
+      `;
+      scannerView.append(overlay);
+    }
+
+    // Handles camera error gracefully (e.g. user denied camera permission)
+    function showCameraError(error) {
+      const container = document.querySelector(".barcode-scanner-view");
+      container.innerHTML = ""; // Clear loader or half-initialized elements
+
+      const isPermissionError =
+        error.name === "NotAllowedError" ||
+        error.name === "PermissionDeniedError" ||
+        error.name === "PermissionDismissedError" ||
+        (error.message && (
+          error.message.toLowerCase().includes("permission") ||
+          error.message.toLowerCase().includes("allow") ||
+          error.message.toLowerCase().includes("denied") ||
+          error.message.toLowerCase().includes("prompt")
+        ));
+
+      let contentHtml;
+      if (isPermissionError) {
+        contentHtml = `
+          <div style="background: #fff5f5; border: 1px solid #fed7d7; border-left: 5px solid #e53e3e; padding: 20px; border-radius: 8px; color: #2d3748; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: sans-serif; text-align: left; margin: 20px auto; max-width: 500px;">
+            <h4 style="margin: 0 0 10px 0; color: #c53030; font-size: 18px; font-weight: bold;">📷 Camera Permission Required</h4>
+            <p style="margin: 0 0 15px 0; font-size: 14px; line-height: 1.5; color: #4a5568;">
+              We couldn't access your camera. This demo requires camera permission to scan barcodes.
+            </p>
+            <div style="background: rgba(229, 62, 62, 0.03); border: 1px dashed rgba(229, 62, 62, 0.3); padding: 15px; border-radius: 6px; font-size: 13px;">
+              <strong>Troubleshooting Guide:</strong>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6; color: #4a5568;">
+                <li><strong>Browser settings:</strong> Click the <strong>lock / site settings</strong> icon next to the URL in your browser's address bar and set <strong>Camera</strong> to <strong>Allow</strong>.</li>
+                <li><strong>Mobile devices:</strong> Go to Settings > Apps > [Your Browser (e.g. Chrome, Safari)] > Permissions > Camera, and change it to <strong>Allow</strong>.</li>
+                <li><strong>System settings:</strong> Ensure your OS settings permit your browser to access system camera hardware.</li>
+                <li>After updating permissions, please <strong>refresh the page</strong> to try again.</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      } else {
+        contentHtml = `
+          <div style="background: #fffaf0; border: 1px solid #feebc8; border-left: 5px solid #dd6b20; padding: 20px; border-radius: 8px; color: #2d3748; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: sans-serif; text-align: left; margin: 20px auto; max-width: 500px;">
+            <h4 style="margin: 0 0 10px 0; color: #dd6b20; font-size: 18px; font-weight: bold;">⚠️ Camera Scanner Error</h4>
+            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5; color: #4a5568;">
+              Unable to initialize or open the camera stream.
+            </p>
+            <p style="margin: 0 0 15px 0; font-size: 13px; font-family: monospace; color: #718096; background: #f7fafc; padding: 8px; border-radius: 4px;">
+              Details: ${error.message || error}
+            </p>
+            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #4a5568;">
+              <li>Verify that no other app or tab is currently using the camera.</li>
+              <li>Make sure you are accessing the page over <strong>HTTPS</strong> or <strong>localhost</strong>.</li>
+              <li>Ensure camera device is connected and functional.</li>
+            </ul>
+          </div>
+        `;
+      }
+
+      container.innerHTML = contentHtml;
+    }
+
+    (async () => {
+      try {
+        const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
+        const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+        const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+
+        cvRouter.setInput(cameraEnhancer);
+
+        const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
+        resultReceiver.onDecodedBarcodesReceived = (result) => {
+          console.log(result);
+          resultView.innerHTML = "";
+          for (let item of result.barcodeResultItems) {
+            const div = document.createElement("div");
+            div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
+            resultView.append(div);
+          }
+        };
+        await cvRouter.addResultReceiver(resultReceiver);
+
+        // Filter out unchecked and duplicate results.
+        const filter = new Dynamsoft.Utility.MultiFrameResultCrossFilter();
+        // Filter out unchecked barcodes.
+        filter.enableResultCrossVerification("barcode", true);
+        // Filter out duplicate barcodes within 3 seconds.
+        filter.enableResultDeduplication("barcode", true);
+        await cvRouter.addResultFilter(filter);
+
+        const uiElement = cameraView.getUIElement();
+        document.querySelector(".barcode-scanner-view").append(uiElement);
+
+        // Open the camera (this triggers permission prompt / request)
+        await cameraEnhancer.open();
+
+        // Show scanning instructions once the camera starts successfully
+        showScanningInstructions();
+
+        await cvRouter.startCapturing("ReadBarcodes_SpeedFirst");
+      } catch (error) {
+        console.error("Initialization / Camera Open failed:", error);
+        showCameraError(error);
+      }
+    })();
+  </script>
+
+  <style>
+    /* Reset default margin and padding, and apply border-box sizing */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Ensure html and body take full viewport size */
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Style for the scanner title */
+    .barcode-scanner-title {
+      height: 80px;
+      text-align: center;
+      font-size: 20px;
+      padding: 20px 0;
+      font-family: sans-serif;
+    }
+
+    /* Container where the barcode scanner will be rendered */
+    .barcode-scanner-view {
+      width: 100%;
+      height: calc(100% - 80px);
+    }
+  </style>
+</body>
+
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Continuously scan and collect multiple unique barcodes via camera with Dynamsoft Barcode Reader." />
+  <meta name="keywords" content="barcode, camera, scanning" />
+  <link rel="canonical" href="https://demo.dynamsoft.com/Samples/DBR/JS/basics/hello-world.html" />
+  <title>Dynamsoft Barcode Scanner Sample - Hello World with CameraView Tips</title>
+
+  <!-- Include Dynamsoft Barcode Reader Bundle via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.4.3000/dist/dbr.bundle.js"></script>
+
+  <style>
+    /* Reset default margin and padding, and apply border-box sizing */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Ensure html and body take full viewport size */
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Style for the scanner title */
+    .barcode-scanner-title {
+      height: 80px;
+      text-align: center;
+      font-size: 20px;
+      padding: 20px 0;
+      font-family: sans-serif;
+    }
+
+    /* Container where the barcode scanner will be rendered */
+    .barcode-scanner-view {
+      width: 100%;
+      height: calc(100% - 80px);
+      position: relative;
+    }
+
+    /* Customize the SDK's built-in tip message box overlay to look premium */
+    .dce-tip {
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      font-size: 14px !important;
+      border-radius: 12px !important;
+      padding: 15px !important;
+      line-height: 1.5 !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+      font-family: sans-serif !important;
+      max-width: 450px !important;
+      backdrop-filter: blur(5px) !important;
+      text-align: center !important;
+    }
+  </style>
+</head>
+
+<body>
+  <h1 class="barcode-scanner-title">
+    Hello World (Scan Barcode via Camera - CameraView Tips Demo)
+  </h1>
+  <!-- This div will host the barcode scanner's camera view -->
+  <div class="barcode-scanner-view"></div>
+  <div class="result-view" style="width: 100%; height: calc(30vh - 80px); padding: 10px; overflow: auto;"></div>
+
+  <script>
+    // Detect file:// protocol and show a helpful tip
+    if (location.protocol === "file:") {
+      const tip = document.createElement("div");
+      tip.style.cssText = "background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 16px;margin:8px;border-radius:6px;font:14px/1.5 sans-serif;text-align:center;";
+      tip.innerHTML = '<strong>Tip:</strong> This page works via <code>file://</code>, but for the best experience, '
+        + 'serve it from a web server (e.g. HTTPS or localhost).';
+      document.body.insertBefore(tip, document.body.firstChild);
+    }
+
+    const resultView = document.querySelector(".result-view");
+
+    // Initialize Dynamsoft license key
+    Dynamsoft.License.LicenseManager.initLicense("DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LU1UQXdNVGcwTlRBNUxYZGxZaTFVY21saGJGQnliMm8iLCJtYWluU2VydmVyVVJMIjoiaHR0cHM6Ly9tZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwib3JnYW5pemF0aW9uSUQiOiIxMDAxODQ1MDkiLCJzdGFuZGJ5U2VydmVyVVJMIjoiaHR0cHM6Ly9zZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwiY2hlY2tDb2RlIjozMDc3NTI2NjF9");
+
+    // Displays camera permission error inside the CameraView tip box
+    function showCameraErrorWithCameraView(cameraView, error) {
+      // Remove any existing card scanning overlay on error
+      const existingOverlay = document.querySelector(".scanner-overlay-svg");
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+
+      const isPermissionError = 
+        error.name === "NotAllowedError" || 
+        error.name === "PermissionDeniedError" || 
+        error.name === "PermissionDismissedError" || 
+        (error.message && (
+          error.message.toLowerCase().includes("permission") || 
+          error.message.toLowerCase().includes("allow") || 
+          error.message.toLowerCase().includes("denied") ||
+          error.message.toLowerCase().includes("prompt")
+        ));
+
+      let message = "⚠️ Camera access error: " + (error.message || error);
+      if (isPermissionError) {
+        message = "📷 Camera Blocked! Please click the lock/settings icon in the browser address bar, set 'Camera' to 'Allow', and refresh the page to scan.";
+      }
+
+      // Configure tip: position at top-center and make it persist permanently
+      cameraView.setTipConfig({
+        topLeftPoint: { x: 10, y: 10 },
+        width: 420,
+        duration: 99999999 // Stay visible permanently
+      });
+
+      cameraView.updateTipMessage(message);
+      cameraView.setTipVisible(true);
+    }
+
+    // Displays scanning instructions and injects the card-back SVG overlay
+    function showScanningInstructionsWithCameraView(cameraView) {
+      // Configure tip: position at bottom-center of the viewport (lowered slightly to avoid overlap)
+      cameraView.setTipConfig({
+        topLeftPoint: { x: 10, y: 80 }, 
+        width: 420,
+        duration: 99999999 // Keep visible for scanning guidance
+      });
+
+      cameraView.updateTipMessage("⚠️ BACK OF DRIVER'S LICENSE ONLY. Align the PDF417 barcode inside the yellow dashed zone.");
+      cameraView.setTipVisible(true);
+
+      // Create and append the card-back SVG guide overlay
+      const scannerView = document.querySelector(".barcode-scanner-view");
+      
+      // Remove existing overlays to avoid duplicates
+      const existingOverlay = scannerView.querySelector(".scanner-overlay-svg");
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+
+      const svgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svgOverlay.setAttribute("class", "scanner-overlay-svg");
+      svgOverlay.style.cssText = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10000;";
+      svgOverlay.innerHTML = `
+        <defs>
+          <!-- Define the mask: opaque white everywhere, transparent black card shape -->
+          <mask id="scan-mask">
+            <rect width="100%" height="100%" fill="white" />
+            <rect x="5%" y="15%" width="90%" height="60%" rx="24" ry="24" fill="black" />
+          </mask>
+        </defs>
+
+        <!-- Semi-transparent overlay with a cutout for the card -->
+        <rect width="100%" height="100%" fill="rgba(0, 0, 0, 0.65)" mask="url(#scan-mask)" />
+
+        <!-- Outer Card Outline -->
+        <rect x="5%" y="15%" width="90%" height="60%" rx="24" ry="24" fill="none" stroke="rgba(255, 255, 255, 0.8)" stroke-width="3" />
+        
+        <!-- Dashed card layout guidelines -->
+        <line x1="5%" y1="28%" x2="95%" y2="28%" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1.5" stroke-dasharray="5,5" />
+        <line x1="5%" y1="62%" x2="95%" y2="62%" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1.5" stroke-dasharray="5,5" />
+
+        <!-- Highlighted PDF417 Barcode alignment zone (aligned exactly to scanRegion: left 15%, top 32%, right 85%, bottom 58%) -->
+        <rect x="15%" y="32%" width="70%" height="26%" rx="8" ry="8" fill="rgba(255, 204, 0, 0.08)" stroke="#ffcc00" stroke-width="3" stroke-dasharray="10,6" />
+        
+        <!-- Barcode zone label -->
+        <text x="50%" y="46%" fill="#ffcc00" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="1">
+          ALIGN PDF417 BARCODE HERE
+        </text>
+
+        <!-- Mock card details representing the back of a state ID / License -->
+        <text x="8%" y="21%" fill="rgba(255, 255, 255, 0.6)" font-family="sans-serif" font-size="10" font-weight="bold">CLASS: D</text>
+        <text x="92%" y="21%" fill="rgba(255, 255, 255, 0.6)" font-family="sans-serif" font-size="10" font-weight="bold" text-anchor="end">REV: 05/01/2017</text>
+        <text x="8%" y="68%" fill="rgba(255, 255, 255, 0.5)" font-family="sans-serif" font-size="10">ENDORSEMENTS: None</text>
+        <text x="8%" y="72%" fill="rgba(255, 255, 255, 0.5)" font-family="sans-serif" font-size="10">RESTRICTIONS: None</text>
+      `;
+      
+      scannerView.appendChild(svgOverlay);
+    }
+
+    (async () => {
+      let cameraView;
+      try {
+        cameraView = await Dynamsoft.DCE.CameraView.createInstance();
+        const cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+        const cvRouter = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+
+        cvRouter.setInput(cameraEnhancer);
+
+        const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
+        resultReceiver.onDecodedBarcodesReceived = (result) => {
+          console.log(result);
+          resultView.innerHTML = "";
+          for (let item of result.barcodeResultItems) {
+            const div = document.createElement("div");
+            div.innerHTML = `format: ${item.formatString}<br> text: ${item.text} <br> ------------------`;
+            resultView.append(div);
+          }
+        };
+        await cvRouter.addResultReceiver(resultReceiver);
+
+        // Filter out unchecked and duplicate results.
+        const filter = new Dynamsoft.Utility.MultiFrameResultCrossFilter();
+        filter.enableResultCrossVerification("barcode", true);
+        filter.enableResultDeduplication("barcode", true);
+        await cvRouter.addResultFilter(filter);
+
+        const uiElement = cameraView.getUIElement();
+        document.querySelector(".barcode-scanner-view").append(uiElement);
+
+        // Open the camera (this triggers the permission request)
+        await cameraEnhancer.open();
+
+        // Specify a scan region on the camera enhancer to match the yellow dashed box
+        await cameraEnhancer.setScanRegion({
+          left: 15,
+          top: 32,
+          right: 85,
+          bottom: 58,
+          isMeasuredInPercentage: true
+        });
+
+        // Show scanning help tip message on success
+        showScanningInstructionsWithCameraView(cameraView);
+
+        await cvRouter.startCapturing("ReadBarcodes_SpeedFirst");
+      } catch (error) {
+        console.error("Initialization / Camera Open failed:", error);
+        if (cameraView) {
+          showCameraErrorWithCameraView(cameraView, error);
+        } else {
+          // Fallback if CameraView instance itself couldn't be created
+          document.querySelector(".barcode-scanner-view").innerHTML = 
+            `<div style="color:red;padding:20px;font-family:sans-serif;">Initialization Error: ${error.message || error}</div>`;
+        }
+      }
+    })();
+  </script>
+</body>
+
+</html>
