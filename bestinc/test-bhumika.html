@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bhumika DL Scanner Test Page</title>
+  
+  <!-- jQuery for her script's selectors -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  
+  <!-- Dynamsoft Barcode Reader Web Bundle (Matches her version) -->
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@11.2.4000/dist/dbr.bundle.js"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f7fafc;
+      color: #2d3748;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .home-page {
+      margin-bottom: 20px;
+    }
+    .start-btn {
+      background-color: #3182ce;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    .start-btn:hover {
+      background-color: #2b6cb0;
+    }
+    .start-btn:disabled {
+      background-color: #cbd5e0;
+      cursor: not-allowed;
+    }
+    .loading {
+      display: none;
+      font-size: 14px;
+      color: #718096;
+      margin: 15px 0;
+    }
+    #error-message {
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    .parsed-result-view {
+      display: none;
+      text-align: left;
+      margin-top: 15px;
+    }
+    .result-box {
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 15px;
+    }
+    .back-to-scan {
+      background-color: #e2e8f0;
+      color: #4a5568;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    /* Style for overlay help inside Dynamsoft RTU UI */
+    .scanner-help-overlay {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 400px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      z-index: 10;
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(5px);
+      pointer-events: none;
+    }
+    .help-title {
+      margin: 0 0 5px 0;
+      font-weight: bold;
+      font-size: 15px;
+      color: #ffcc00;
+    }
+    .help-text {
+      margin: 0;
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>DL Scanner Demo</h2>
+    <p style="color: #718096; font-size: 14px; margin-bottom: 20px;">Testing camera permissions and scanning overlays</p>
+    
+    <!-- Home Page UI -->
+    <div class="home-page">
+      <button id="btn-show-scanner" class="start-btn">Start Scanning</button>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div class="loading">Please wait while launching...</div>
+    
+    <!-- Error message output container -->
+    <div id="error-message"></div>
+    
+    <!-- Parsed Results UI -->
+    <div class="parsed-result-view">
+      <h3>Scan Results</h3>
+      <div class="barcode-text" style="display: none;"></div>
+      <div class="parsed-result-list result-box"></div>
+      <button class="back-to-scan">Scan Again</button>
+    </div>
+  </div>
+
+  <script>
+    // Mock local setting retrieval and submission handlers
+    async function getSettingValueDL() {
+      // Configured with trial license key
+      return { value: "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAwMTg0NTA5LU1UQXdNVGcwTlRBNUxYZGxZaTFVY21saGJGQnliMm8iLCJtYWluU2VydmVyVVJMIjoiaHR0cHM6Ly9tZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwib3JnYW5pemF0aW9uSUQiOiIxMDAxODQ1MDkiLCJzdGFuZGJ5U2VydmVyVVJMIjoiaHR0cHM6Ly9zZGxzLmR5bmFtc29mdG9ubGluZS5jb20vIiwiY2hlY2tDb2RlIjozMDc3NTI2NjF9" };
+    }
+
+    function submitFormDL() {
+      console.log("DL scan submitted successfully");
+    }
+
+    // --- Bhumika's Modified Javascript Code Starts Here ---
+    const parsedResultView = document.querySelector(".parsed-result-view");
+    const homePage = document.querySelector(".home-page");
+    const startBtn = document.querySelector(".start-btn");
+    const loading = document.querySelector(".loading");
+    const barcodeText = document.querySelector(".barcode-text");
+    const parsedResultList = document.querySelector(".parsed-result-list");
+    const backToScan = document.querySelector(".back-to-scan");
+
+    $("#btn-show-scanner").hide();
+    $("#btn-show-scanner").prop("disabled", true);
+    $("#error-message").text("Please wait while loading....");
+
+    var licenseString = "";
+    window.addEventListener("DOMContentLoaded", async () => {
+        try {
+            const myVal = await getSettingValueDL();
+            licenseString = myVal.value;
+
+            $("#btn-show-scanner").prop("disabled", false);
+            $("#error-message").text("");
+
+            // Initialize the license manager
+            await Dynamsoft.License.LicenseManager.initLicense(licenseString);
+         
+            await Dynamsoft.DCP.CodeParserModule.loadSpec(["AAMVA_DL_ID", "AAMVA_DL_ID_WITH_MAG_STRIPE"]);
+
+            loading.style.display = "block";
+            $("#btn-show-scanner").hide();
+            await launchScanner();
+
+        } catch (error) {
+            console.error("Initialization failed:", error);
+            loading.style.display = "none";
+            $("#btn-show-scanner").show().prop("disabled", false);
+            
+            // Render detailed connection error
+            $("#error-message").html(`
+                <div style="background: #fff5f5; border-left: 4px solid #e53e3e; padding: 16px; border-radius: 8px; color: #2d3748; text-align: left;">
+                    <h4 style="margin: 0 0 8px 0; color: #c53030; font-size: 15px; font-weight: bold;">🔌 Initialization Error</h4>
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #4a5568;">
+                        Failed to initialize the scanner: ${error.message || error}. Please check your connection and reload the page.
+                    </p>
+                </div>
+            `);
+        }
+    });
+
+    let pParser;
+
+    // Extracted launch function to run cleanly on page load or button clicks
+    async function launchScanner() {
+        try {
+            const scanner = new Dynamsoft.BarcodeScanner({
+                license: licenseString,
+                templateFilePath: "./asset/Dlicense1/read_dl.json",
+                showUploadImageButton: false,
+                utilizedTemplateNames: {
+                    "single": "ReadDriversLicense",
+                    "multi_unique": "ReadDriversLicense",
+                    "image": "ReadDriversLicense"
+                },
+                scannerViewConfig: {
+                    showFlashButton: true,
+                    showCloseButton: true, // Show close button so they can cancel
+                    cameraSwitchControl: "toggleFrontBack",
+                    singleFrameUIElement: `
+                        <div class="dce-video-container" style="width:100%;height:100%;"></div>
+                        <div class="dce-scanarea" style="width:100%;height:100%;"></div>
+                        
+                        <!-- Custom Help Notification Card (shown when camera is open) -->
+                        <div class="scanner-help-overlay">
+                            <p class="help-title">⚠️ BACK OF DRIVER'S LICENSE ONLY</p>
+                            <p class="help-text">Please flip your ID card over and position the large barcode inside the frame.</p>
+                        </div>
+                    `
+                },
+                onInitReady: () => {
+                    homePage.style.display = "none";
+                    $("#error-message").html(""); // Clear prior errors
+                }
+            });
+
+            const result = await scanner.launch();
+            if (result.barcodeResults.length > 0) {
+                let processedResult;
+                try {
+                    const parser = await (pParser || (pParser = Dynamsoft.DCP.CodeParser.createInstance()));
+                    const parsedResult = await parser.parse(result.barcodeResults[0].bytes);
+                    processedResult = handleDLResult(parsedResult);
+                } catch (ex) {
+                    processedResult = [
+                        { description: "Error", value: ex.message || "parse failed." },
+                        {
+                            description: "Original text",
+                            value: result.barcodeResults[0].text,
+                        },
+                    ];
+                } finally {
+                    generateResultList(processedResult);
+                    barcodeText.innerText = result.barcodeResults[0].text.replace(/\n/g, "");
+                }
+            }
+        } catch (error) {
+            console.error("Camera scanner launch failed:", error);
+            
+            // Recover UI elements on failure
+            loading.style.display = "none";
+            homePage.style.display = "block";
+            $("#btn-show-scanner").show();
+
+            const isPermissionError = 
+                error.name === "NotAllowedError" || 
+                error.name === "PermissionDeniedError" || 
+                error.name === "PermissionDismissedError" || 
+                (error.message && (
+                    error.message.toLowerCase().includes("permission") || 
+                    error.message.toLowerCase().includes("allow") || 
+                    error.message.toLowerCase().includes("denied") ||
+                    error.message.toLowerCase().includes("prompt")
+                ));
+
+            let errMsg;
+            if (isPermissionError) {
+                errMsg = `
+                    <div style="background: #fff5f5; border-left: 4px solid #e53e3e; padding: 16px; border-radius: 8px; color: #2d3748; text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                        <h4 style="margin: 0 0 8px 0; color: #c53030; font-size: 15px; font-weight: bold;">📷 Camera Access is Blocked</h4>
+                        <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.5; color: #4a5568;">
+                            This app requires camera permission to scan your driver's license. Please grant camera access to continue.
+                        </p>
+                        <div style="background: rgba(229, 62, 62, 0.04); border: 1px dashed rgba(229, 62, 62, 0.3); padding: 12px; border-radius: 6px; font-size: 12px;">
+                            <strong>How to allow camera access:</strong>
+                            <ul style="margin: 6px 0 0 0; padding-left: 20px; line-height: 1.5; color: #4a5568;">
+                                <li><strong>In your browser:</strong> Click the <strong>lock / site settings icon</strong> at the top left of the address bar and set <strong>Camera</strong> to <strong>Allow</strong>.</li>
+                                <li><strong>In phone settings:</strong> Go to Settings > Apps > [Your Browser] > Permissions > Camera > Select <strong>Allow</strong>.</li>
+                                <li>After enabling the permission, please refresh this page or tap the scan button to try again.</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } else {
+                errMsg = `
+                    <div style="background: #fffaf0; border-left: 4px solid #dd6b20; padding: 16px; border-radius: 8px; color: #2d3748; text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                        <h4 style="margin: 0 0 8px 0; color: #c05621; font-size: 15px; font-weight: bold;">⚠️ Camera Access Error</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.5;">
+                            Unable to start the scanner. Details: <code>${error.message || error}</code>
+                        </p>
+                        <p style="margin: 0; font-size: 12px; color: #718096;">
+                            Please verify no other tab is using the camera, you are on HTTPS, and your camera is working.
+                        </p>
+                    </div>
+                `;
+            }
+            $("#error-message").html(errMsg);
+        }
+    }
+
+    function handleDLResult(parsedResult) {
+        const oriParseInfo = [];
+        const resultInfo = JSON.parse(parsedResult.jsonString);
+        if (parsedResult.codeType === "AAMVA_DL_ID") {
+            for (let info of resultInfo.ResultInfo) {
+                if (info.FieldName !== "commonSubfile") continue;
+                if (info.ChildFields) {
+                    wrapResultObject(info.ChildFields);
+                }
+            }
+        } else if (parsedResult.codeType === "AAMVA_DL_ID_WITH_MAG_STRIPE") {
+            for (let info of resultInfo.ResultInfo) {
+                if (info.FieldName.includes("track")) {
+                    if (info.ChildFields) {
+                        wrapResultObject(info.ChildFields);
+                    }
+                }
+            }
+        } else if (parsedResult.codeType === "SOUTH_AFRICA_DL") {
+            for (let info of resultInfo.ResultInfo) {
+                if (info.ChildFields) {
+                    wrapResultObject(info.ChildFields);
+                } else {
+                    if (info.Value) {
+                        oriParseInfo.push({
+                            description: info.FieldName,
+                            value: info.Value,
+                        });
+                    }
+                }
+            }
+        }
+
+        function wrapResultObject(childFields) {
+            for (let childField of childFields) {
+                for (let field of childField) {
+                    if (!["dataElementSeparator", "segmentTerminator", "subfile", "subfileType"].includes(field.FieldName)) {
+                        if (field.Value) {
+                            oriParseInfo.push({
+                                description: field.FieldName,
+                                value: field.Value,
+                            });
+                        }
+                    }
+                    if (field.ChildFields) {
+                        wrapResultObject(field.ChildFields);
+                    }
+                }
+            }
+        }
+        return oriParseInfo;
+    }
+
+    function generateResultList(processedResult) {
+        parsedResultList.innerHTML = "";
+        let resultText = "";
+        for (let item of processedResult) {
+            resultText += `${item.description}: ${item.value}\n`;
+        }
+        parsedResultList.innerText = resultText;
+        
+        if (resultText !== "") {
+            parsedResultView.style.display = "block";
+            submitFormDL();
+        }
+    }
+
+    // Retained manual fallbacks for click listeners
+    startBtn.addEventListener("click", () => {
+        loading.style.display = "block";
+        $("#btn-show-scanner").hide();
+        $("#error-message").html(""); // Clear prior errors
+        launchScanner();
+    });
+
+    backToScan.addEventListener("click", () => {
+        parsedResultView.style.display = "none";
+        $("#error-message").html(""); // Clear prior errors
+        launchScanner();
+    });
+
+    function ResetPage() {
+        parsedResultView.style.display = "none";
+        loading.style.display = "none";
+        $("#btn-show-scanner").show();
+        homePage.style.display = "block";
+        $("#error-message").html(""); // Clear prior errors
+    }
+  </script>
+</body>
+</html>
