@@ -246,7 +246,7 @@
                 });
 
                 const result = await scanner.launch();
-                if (result.barcodeResults.length > 0) {
+                if (result && result.barcodeResults && result.barcodeResults.length > 0) {
                     let processedResult;
                     try {
                         const parser = await (pParser || (pParser = Dynamsoft.DCP.CodeParser.createInstance()));
@@ -264,6 +264,9 @@
                         generateResultList(processedResult);
                         barcodeText.innerText = result.barcodeResults[0].text.replace(/\n/g, "");
                     }
+                } else {
+                    console.log("Scanner closed or canceled.");
+                    ResetPage();
                 }
             } catch (error) {
                 console.error("Camera scanner launch failed:", error);
